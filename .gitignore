@@ -1,0 +1,32 @@
+# Node & Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+env/
+
+# Logs & Temporary Files
+*.log
+*.tmp
+*.webm
+*.wav
+
+# OS Artifacts
+.DS_Store
+Thumbs.db
