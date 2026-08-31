@@ -34,6 +34,7 @@ class GoalSuggestionItem(BaseModel):
     matched_existing_goal_title: Optional[str] = None
 
 class AIAnalysisResult(BaseModel):
+    title: Optional[str] = None  # AI-generated short title (3-6 words)
     mood: str = "neutral"  # positive | neutral | reflective | overwhelmed | motivated
     mood_confidence: float = 0.8
     activities: list[ActivityItem] = Field(default_factory=list)
@@ -57,6 +58,7 @@ class JournalResponse(BaseModel):
     user_id: str
     content: str
     source: str
+    title: Optional[str] = None
     ai_analysis: Optional[dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime

@@ -2,7 +2,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.core.auth import get_current_user, AuthenticatedUser
 from app.schemas.goal import GoalCreate, GoalUpdate, GoalResponse
+from app.schemas.progress import ProgressCreate, ProgressResponse
 from app.services.goal_service import goal_service
+from app.services.progress_service import progress_service
 
 router = APIRouter(prefix="/goals", tags=["Goals"])
 
@@ -64,3 +66,26 @@ def delete_goal(
             detail="Goal not found",
         )
     return {"message": "Goal deleted successfully", "id": goal_id}
+
+@router.post("/{goal_id}/progress", response_model=ProgressResponse, status_code=status.HTTP_201_CREATED)
+def record_goal_progress(
+    goal_id: str,
+    data: ProgressCreate,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Record progress (0-100%) for a goal."""
+    progress = progress_service.record_progress(user_id=current_user.uid, goal_id=goal_id, data=data)
+    if not progress:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Goal not found",
+        )
+    return progress
+
+@router.get("/{goal_id}/progress", response_model=list[ProgressResponse])
+def get_goal_progress_history(
+    goal_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Get progress history for a goal."""
+    return progress_service.get_progress_history(user_id=current_user.uid, goal_id=goal_id)

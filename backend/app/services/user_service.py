@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, Any
 from app.models.domain import User
 from app.schemas.user import UserProfileResponse, UserStats, UserProfileUpdate
-from app.repositories.in_memory import user_repo, goal_repo, journal_repo
+from app.repositories.postgres import user_repo, journal_repo, goal_repo
+
 
 class UserService:
     def get_or_create_profile(self, uid: str, email: str, name: Optional[str] = None) -> UserProfileResponse:
@@ -33,6 +34,7 @@ class UserService:
             email=user.email,
             display_name=user.display_name,
             profession=user.profession,
+            preferences=user.preferences,
             created_at=user.created_at,
             stats=stats,
         )
@@ -42,6 +44,16 @@ class UserService:
             uid=uid,
             display_name=data.display_name,
             profession=data.profession,
+            preferences=data.preferences,
+        )
+        if not user:
+            return None
+        return self.get_or_create_profile(uid=uid, email=user.email)
+
+    def update_preferences(self, uid: str, preferences: dict[str, Any]) -> Optional[UserProfileResponse]:
+        user = user_repo.update_profile(
+            uid=uid,
+            preferences=preferences,
         )
         if not user:
             return None

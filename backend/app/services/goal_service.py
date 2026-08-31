@@ -3,26 +3,66 @@ import re
 from typing import Optional, Any
 from app.models.domain import Goal
 from app.schemas.goal import GoalCreate, GoalUpdate
-from app.repositories.in_memory import goal_repo
+from app.repositories.postgres import goal_repo
+
+import math
+from datetime import datetime
 
 class GoalService:
+    def _enrich_goal(self, goal: Optional[Goal]) -> Optional[Goal]:
+        if not goal:
+            return None
+
+        # Sync latest progress record from progress table if present
+        try:
+            from app.repositories.postgres import progress_repo
+            latest_progress = progress_repo.get_latest_by_goal(user_id=goal.user_id, goal_id=goal.id)
+            if latest_progress and latest_progress.progress_value is not None:
+                goal.progress_value = max(goal.progress_value or 0, latest_progress.progress_value)
+        except Exception:
+            pass
+
+        val = goal.progress_value or 0
+        if val >= 100:
+            goal.status = "Completed"
+            goal.estimated_days_remaining = 0
+            return goal
+
+        if goal.status == "Completed":
+            goal.estimated_days_remaining = 0
+            return goal
+
+        # Active or Stalled goal velocity calculation
+        created_dt = goal.created_at or datetime.utcnow()
+        days_active = max(1, (datetime.utcnow() - created_dt).days)
+        velocity = max(val / days_active, 2.0)  # Default min 2% / day
+        remaining_percentage = max(0, 100 - val)
+        goal.estimated_days_remaining = math.ceil(remaining_percentage / velocity)
+        return goal
+
     def list_goals(self, user_id: str, status: Optional[str] = None) -> list[Goal]:
-        return goal_repo.get_all_by_user(user_id=user_id, status=status)
+        raw_goals = goal_repo.get_all_by_user(user_id=user_id, status=status)
+        return [self._enrich_goal(g) for g in raw_goals if g]
 
     def get_goal(self, user_id: str, goal_id: str) -> Optional[Goal]:
-        return goal_repo.get_by_id(user_id=user_id, goal_id=goal_id)
+        goal = goal_repo.get_by_id(user_id=user_id, goal_id=goal_id)
+        return self._enrich_goal(goal)
 
     def create_goal(self, user_id: str, data: GoalCreate) -> Goal:
+        prog_val = data.progress_value or 0
+        init_status = "Completed" if prog_val >= 100 else (data.status.value if hasattr(data.status, "value") else str(data.status))
         goal = Goal(
             id=str(uuid.uuid4()),
             user_id=user_id,
             title=data.title.strip(),
             description=data.description.strip() if data.description else None,
             category=data.category.strip() if data.category else None,
-            status=data.status.value if hasattr(data.status, "value") else str(data.status),
+            status=init_status,
             target_date=data.target_date,
+            progress_value=prog_val,
         )
-        return goal_repo.create(goal)
+        saved = goal_repo.create(goal)
+        return self._enrich_goal(saved)
 
     def update_goal(self, user_id: str, goal_id: str, data: GoalUpdate) -> Optional[Goal]:
         updates = {}
@@ -36,8 +76,15 @@ class GoalService:
             updates["status"] = data.status.value if hasattr(data.status, "value") else str(data.status)
         if data.target_date is not None:
             updates["target_date"] = data.target_date
+        if data.progress_value is not None:
+            updates["progress_value"] = data.progress_value
+            if data.progress_value >= 100:
+                updates["status"] = "Completed"
+        if data.latest_progress_note is not None:
+            updates["latest_progress_note"] = data.latest_progress_note.strip()
 
-        return goal_repo.update(user_id=user_id, goal_id=goal_id, **updates)
+        updated = goal_repo.update(user_id=user_id, goal_id=goal_id, **updates)
+        return self._enrich_goal(updated)
 
     def delete_goal(self, user_id: str, goal_id: str) -> bool:
         return goal_repo.delete(user_id=user_id, goal_id=goal_id)

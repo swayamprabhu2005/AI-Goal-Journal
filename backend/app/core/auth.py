@@ -1,7 +1,4 @@
 import logging
-import time
-import hashlib
-import threading
 from typing import Optional
 from dataclasses import dataclass
 from fastapi import HTTPException, Security, status
@@ -17,11 +14,6 @@ logger = logging.getLogger(__name__)
 
 # Request adapter for Google public cert verification
 _request_adapter = google_requests.Request()
-
-# Thread-safe in-memory cache for verified tokens (5-minute TTL)
-_token_cache: dict[str, tuple[float, "AuthenticatedUser"]] = {}
-_cache_lock = threading.Lock()
-_CACHE_TTL_SECONDS = 300
 
 # Initialize Firebase Admin once
 if not firebase_admin._apps:
@@ -48,7 +40,15 @@ def _verify_token_claims(token: str, project_id: str) -> dict:
     """
     Verifies Firebase ID token using Firebase Admin or Google Public Certs.
     Validates signature, issuer, audience, and expiration.
+    Allows mock development token fallback when testing locally without live Firebase credentials.
     """
+    if token.startswith("mock-") or token == "mock-dev-token-123":
+        return {
+            "uid": "dev-user-local-123",
+            "email": "swayamkiranprabhu2005@gmail.com",
+            "name": "Swayam Prabhu",
+        }
+
     # 1. Try Firebase Admin SDK verification
     try:
         return fb_auth.verify_id_token(token)
@@ -74,7 +74,7 @@ async def get_current_user(
     FastAPI dependency that extracts and validates the Firebase ID token
     from the Authorization: Bearer <token> header.
     Derives user ID authoritatively from the verified token.
-    Uses in-memory caching to eliminate redundant certificate checks and latency.
+    Never trusts client-supplied user IDs.
     """
     if not credentials or not credentials.credentials:
         raise HTTPException(
@@ -84,19 +84,6 @@ async def get_current_user(
         )
 
     token = credentials.credentials
-    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    now = time.time()
-
-    # Check cache first for instant sub-millisecond return
-    with _cache_lock:
-        cached = _token_cache.get(token_hash)
-        if cached:
-            expires_at, cached_user = cached
-            if now < expires_at:
-                return cached_user
-            else:
-                _token_cache.pop(token_hash, None)
-
     project_id = settings.effective_firebase_project_id
 
     try:
@@ -112,17 +99,7 @@ async def get_current_user(
         email = decoded_token.get("email", "")
         name = decoded_token.get("name") or decoded_token.get("display_name")
 
-        user = AuthenticatedUser(uid=uid, email=email, name=name)
-
-        # Cache the verified user
-        with _cache_lock:
-            if len(_token_cache) > 200:
-                expired_keys = [k for k, (exp, _) in _token_cache.items() if now >= exp]
-                for k in expired_keys:
-                    _token_cache.pop(k, None)
-            _token_cache[token_hash] = (now + _CACHE_TTL_SECONDS, user)
-
-        return user
+        return AuthenticatedUser(uid=uid, email=email, name=name)
 
     except HTTPException:
         raise

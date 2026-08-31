@@ -189,3 +189,39 @@ def test_journal_creation_with_mocked_gemini(client_with_mock_auth):
         assert data["ai_analysis"]["mood"] == "motivated"
         assert len(data["ai_analysis"]["activities"]) == 1
         assert data["ai_analysis"]["activities"][0]["status"] == "completed"
+
+def test_progress_tracking_flow(client_with_mock_auth):
+    # 1. Create a goal
+    goal_res = client_with_mock_auth.post(
+        "/api/v1/goals",
+        json={"title": "Master FastAPI Progress API", "status": "Active"}
+    )
+    assert goal_res.status_code == 201
+    goal_id = goal_res.json()["id"]
+
+    # 2. Record 50% progress
+    prog_res1 = client_with_mock_auth.post(
+        f"/api/v1/goals/{goal_id}/progress",
+        json={"progress_value": 50, "note": "Finished phase 1"}
+    )
+    assert prog_res1.status_code == 201
+    assert prog_res1.json()["progress_value"] == 50
+    assert prog_res1.json()["note"] == "Finished phase 1"
+
+    # 3. Record 100% progress (should auto-complete goal)
+    prog_res2 = client_with_mock_auth.post(
+        f"/api/v1/goals/{goal_id}/progress",
+        json={"progress_value": 100, "note": "Finished phase 2 - 100% done"}
+    )
+    assert prog_res2.status_code == 201
+    assert prog_res2.json()["progress_value"] == 100
+
+    # 4. Verify goal is auto-marked Completed
+    updated_goal = client_with_mock_auth.get(f"/api/v1/goals/{goal_id}").json()
+    assert updated_goal["status"] == "Completed"
+    assert updated_goal["progress_value"] == 100
+
+    # 5. Fetch progress history
+    hist_res = client_with_mock_auth.get(f"/api/v1/goals/{goal_id}/progress")
+    assert hist_res.status_code == 200
+    assert len(hist_res.json()) == 2

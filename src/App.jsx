@@ -1,35 +1,37 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from "react-router-dom";
 
-import AppShell from './components/AppShell';
-import ProtectedRoute from './components/ProtectedRoute';
-import PublicRoute from './components/PublicRoute';
-import Landing from './pages/Landing';
-import Dashboard from './pages/Dashboard';
-import Goals from './pages/Goals';
-import Journal from './pages/Journal';
-import AiCoach from './pages/AiCoach';
-import Login from './pages/Login';
-import Profile from './pages/Profile';
-import Register from './pages/Register';
-import { useAuth } from './context/AuthContext';
+import AppShell from "./components/AppShell";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
+import Landing from "./pages/Landing";
+import Dashboard from "./pages/Dashboard";
+import Progress from "./pages/progress";
+import Goals from "./pages/Goals";
+import Journal from "./pages/Journal";
+import AiCoach from "./pages/AiCoach";
+import Insights from "./pages/Insights";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import { useAuth } from "./context/AuthContext";
 
 function RootIndexRoute() {
   const { user, checkingAuth } = useAuth();
 
   if (checkingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-soft-app">
+      <div className="flex min-h-screen items-center justify-center bg-background text-cream">
         <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-moss-200 border-t-moss-600" />
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-text">
-            Loading AI Goal Journal...
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-burgundy border-t-cream" />
+          <p className="text-xs font-semibold uppercase tracking-wider text-beige/70">
+            Loading Goal Journal...
           </p>
         </div>
       </div>
     );
   }
 
-  // If already authenticated, redirect to workspace dashboard; otherwise show public landing page
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -43,7 +45,7 @@ export default function App() {
       {/* Public Landing Route */}
       <Route path="/" element={<RootIndexRoute />} />
 
-      {/* Public Auth Routes (Redirects to dashboard if logged in) */}
+      {/* Public Auth Routes */}
       <Route
         path="/login"
         element={
@@ -61,61 +63,23 @@ export default function App() {
         }
       />
 
-      {/* Protected Workspace Pages */}
+      {/* Protected Workspace Layout & Sub-routes */}
       <Route
-        path="/dashboard"
         element={
           <ProtectedRoute>
-            <AppShell>
-              <Dashboard />
-            </AppShell>
+            <AppShell />
           </ProtectedRoute>
         }
-      />
-
-      <Route
-        path="/journal"
-        element={
-          <ProtectedRoute>
-            <AppShell>
-              <Journal />
-            </AppShell>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/goals"
-        element={
-          <ProtectedRoute>
-            <AppShell>
-              <Goals />
-            </AppShell>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/coach"
-        element={
-          <ProtectedRoute>
-            <AppShell>
-              <AiCoach />
-            </AppShell>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <AppShell>
-              <Profile />
-            </AppShell>
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/progress" element={<Progress />} />
+        <Route path="/goals" element={<Goals />} />
+        <Route path="/journal" element={<Journal />} />
+        <Route path="/coach" element={<AiCoach />} />
+        <Route path="/insights" element={<Insights />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,6 +1,8 @@
-# Node & Frontend
+# Dependencies & Build Output
 node_modules/
+frontend/node_modules/
 dist/
+frontend/dist/
 dist-ssr/
 *.local
 
@@ -8,25 +10,40 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
+frontend/.env
+backend/.env
 
-# Python / Backend
+# Python / FastAPI Backend
 __pycache__/
+backend/__pycache__/
+backend/app/__pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+backend/.pytest_cache/
 .coverage
 htmlcov/
 .venv/
 venv/
 ENV/
 env/
+*.db
+*.sqlite
 
-# Logs & Temporary Files
+# Logs, Audio Transcripts & Temporary Scratch Files
 *.log
 *.tmp
 *.webm
 *.wav
+doc_text.txt
+scratch/
 
-# OS Artifacts
+# Agent System Logs & Artifacts
+.system_generated/
+.user_uploaded/
+
+# OS & IDE Artifacts
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/

@@ -75,7 +75,7 @@ def delete_journal(
     return {"message": "Journal entry deleted successfully", "id": journal_id}
 
 @router.post("/voice/transcribe", response_model=VoiceTranscribeResponse)
-async def transcribe_voice(
+def transcribe_voice(
     file: UploadFile = File(...),
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -85,7 +85,7 @@ async def transcribe_voice(
     """
     # Validate file size (< 15 MB)
     MAX_SIZE = 15 * 1024 * 1024
-    audio_bytes = await file.read()
+    audio_bytes = file.file.read()
 
     if not audio_bytes:
         raise HTTPException(

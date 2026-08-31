@@ -1,10 +1,17 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 class UserProfileUpdate(BaseModel):
     display_name: Optional[str] = None
     profession: Optional[str] = None
+    preferences: Optional[dict[str, Any]] = None
+
+class UserPreferencesUpdate(BaseModel):
+    notifications: Optional[bool] = True
+    aiInsights: Optional[bool] = True
+    journalReminders: Optional[bool] = True
+    compactMode: Optional[bool] = False
 
 class UserStats(BaseModel):
     total_journals: int = 0
@@ -20,5 +27,6 @@ class UserProfileResponse(BaseModel):
     email: str
     display_name: Optional[str] = None
     profession: Optional[str] = None
+    preferences: Optional[dict[str, Any]] = None
     created_at: datetime
     stats: Optional[UserStats] = None

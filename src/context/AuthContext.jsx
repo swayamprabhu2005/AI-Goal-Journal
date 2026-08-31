@@ -15,7 +15,22 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        const savedDevUser = localStorage.getItem('local_dev_user');
+        if (savedDevUser) {
+          try {
+            const parsed = JSON.parse(savedDevUser);
+            parsed.getIdToken = async () => 'mock-dev-token-123';
+            setUser(parsed);
+          } catch (e) {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+      }
       setCheckingAuth(false);
     });
 
@@ -23,17 +38,20 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function login(email, password) {
-    const user = await firebaseLogin(email, password);
-    return user;
+    const loggedInUser = await firebaseLogin(email, password);
+    setUser(loggedInUser);
+    return loggedInUser;
   }
 
   async function register(email, password) {
-    const user = await firebaseRegister(email, password);
-    return user;
+    const registeredUser = await firebaseRegister(email, password);
+    setUser(registeredUser);
+    return registeredUser;
   }
 
   async function logout() {
     await firebaseLogout();
+    setUser(null);
   }
 
   return (

@@ -1,12 +1,13 @@
 import threading
 from datetime import datetime
 from typing import Optional, Any
-from app.models.domain import User, Goal, JournalEntry, WeeklySummary
+from app.models.domain import User, Goal, JournalEntry, WeeklySummary, Progress
 from app.repositories.base import (
     AbstractUserRepository,
     AbstractGoalRepository,
     AbstractJournalRepository,
     AbstractSummaryRepository,
+    AbstractProgressRepository,
 )
 
 class InMemoryUserRepository(AbstractUserRepository):
@@ -35,7 +36,7 @@ class InMemoryUserRepository(AbstractUserRepository):
             return self._users.get(uid)
 
     def update_profile(
-        self, uid: str, display_name: Optional[str] = None, profession: Optional[str] = None
+        self, uid: str, display_name: Optional[str] = None, profession: Optional[str] = None, preferences: Optional[dict[str, Any]] = None
     ) -> Optional[User]:
         with self._lock:
             user = self._users.get(uid)
@@ -45,6 +46,8 @@ class InMemoryUserRepository(AbstractUserRepository):
                 user.display_name = display_name
             if profession is not None:
                 user.profession = profession
+            if preferences is not None:
+                user.preferences = {**user.preferences, **preferences}
             user.updated_at = datetime.utcnow()
             return user
 
@@ -96,6 +99,91 @@ class InMemoryGoalRepository(AbstractGoalRepository):
                 return True
             return False
 
+
+class InMemoryProgressRepository(AbstractProgressRepository):
+    def __init__(self):
+        self._lock = threading.Lock()
+
+        # Keyed by goal_id -> list of Progress records
+        self._goal_progress: dict[str, list[Progress]] = {}
+
+    def create(self, progress: Progress) -> Progress:
+        with self._lock:
+            if progress.goal_id not in self._goal_progress:
+                self._goal_progress[progress.goal_id] = []
+
+            self._goal_progress[progress.goal_id].append(progress)
+            return progress
+
+    def get_by_id(
+        self,
+        user_id: str,
+        progress_id: str
+    ) -> Optional[Progress]:
+        """
+        Return a single progress record by ID.
+
+        user_id is accepted to match the repository interface.
+        Ownership is checked by the service through the user's goal.
+        """
+        with self._lock:
+            for history in self._goal_progress.values():
+                for progress in history:
+                    if progress.id == progress_id:
+                        return progress
+
+            return None
+
+    def get_by_goal(
+        self,
+        user_id: str,
+        goal_id: str
+    ) -> list[Progress]:
+        """
+        Return all progress records for a goal,
+        newest first.
+        """
+        with self._lock:
+            history = self._goal_progress.get(goal_id, [])
+
+            return sorted(
+                history,
+                key=lambda p: p.created_at,
+                reverse=True
+            )
+
+    def get_latest_by_goal(
+        self,
+        user_id: str,
+        goal_id: str
+    ) -> Optional[Progress]:
+        """
+        Return the latest progress record for a goal.
+        """
+        with self._lock:
+            history = self._goal_progress.get(goal_id, [])
+
+            if not history:
+                return None
+
+            return max(
+                history,
+                key=lambda p: p.created_at
+            )
+
+    # Compatibility helper for older code/tests.
+    def get_all_by_goal(
+        self,
+        goal_id: str
+    ) -> list[Progress]:
+        with self._lock:
+            history = self._goal_progress.get(goal_id, [])
+
+            return sorted(
+                history,
+                key=lambda p: p.created_at,
+                reverse=True
+            )
 
 class InMemoryJournalRepository(AbstractJournalRepository):
     def __init__(self):
@@ -161,3 +249,4 @@ user_repo = InMemoryUserRepository()
 goal_repo = InMemoryGoalRepository()
 journal_repo = InMemoryJournalRepository()
 summary_repo = InMemorySummaryRepository()
+progress_repo = InMemoryProgressRepository()

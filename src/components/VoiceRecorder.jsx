@@ -4,7 +4,7 @@ import Button from './Button';
 import { journalApi } from '../services/api';
 
 export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSubmitting = false }) {
-  const [recordingState, setRecordingState] = useState('idle'); // idle | recording | recorded | transcribing | transcribed | error
+  const [recordingState, setRecordingState] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [audioUrl, setAudioUrl] = useState(null);
   const [audioBlob, setAudioBlob] = useState(null);
@@ -16,7 +16,6 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
 
-  // Check browser API support on mount
   const isSupported =
     typeof window !== 'undefined' &&
     navigator?.mediaDevices?.getUserMedia &&
@@ -171,8 +170,8 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
   if (!isSupported) {
     return (
       <Card className="mb-6 border-status-warning/40 bg-status-warning-bg">
-        <h3 className="font-semibold text-foreground">Voice Journal</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <h3 className="font-semibold text-cream">Voice Journal</h3>
+        <p className="mt-2 text-sm text-beige/70">
           Audio recording is not supported by your current browser. Please use text journaling or switch to a modern browser.
         </p>
       </Card>
@@ -180,21 +179,21 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
   }
 
   return (
-    <Card className="mb-6 border-card-border bg-card-grad p-6 shadow-soft">
+    <Card className="mb-6 border-border bg-surface p-6 shadow-card">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <div>
-          <h3 className="text-lg font-bold text-foreground font-display flex items-center gap-2">
-            <span className="text-accent">🎙️</span> Voice Reflection (faster-whisper Tiny)
+          <h3 className="text-lg font-bold text-cream flex items-center gap-2">
+            <span className="text-beige">🎙️</span> Voice Reflection (faster-whisper Tiny)
           </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-beige/60 mt-0.5">
             Speak naturally about your day. Transcribed locally on CPU (INT8) with zero cloud speech API fees.
           </p>
         </div>
 
         {recordingState === 'recording' && (
-          <div className="inline-flex items-center gap-2 rounded-full bg-accent/15 border border-accent/40 px-3 py-1 self-start sm:self-auto">
-            <span className="h-2.5 w-2.5 animate-ping rounded-full bg-accent" />
-            <span className="font-mono text-xs font-bold text-accent">
+          <div className="inline-flex items-center gap-2 rounded-full bg-burgundy/40 border border-burgundy px-3 py-1 self-start sm:self-auto">
+            <span className="h-2.5 w-2.5 animate-ping rounded-full bg-burgundy" />
+            <span className="font-mono text-xs font-bold text-cream">
               Recording: {formatTime(recordingTime)}
             </span>
           </div>
@@ -202,7 +201,7 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
       </div>
 
       {errorMessage && (
-        <div role="alert" className="mb-4 rounded-card bg-status-error-bg p-3 text-xs text-status-error border border-status-error/30">
+        <div role="alert" className="mb-4 rounded-card bg-red-950/30 p-3 text-xs text-red-400 border border-red-900/40">
           <strong>Notice: </strong> {errorMessage}
         </div>
       )}
@@ -213,22 +212,22 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
         {(recordingState === 'idle' || recordingState === 'error') && (
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={startRecording} className="gap-2 px-5 py-3">
-              <span className="text-lg text-accent">🎙️</span> Start Recording Voice
+              <span className="text-lg text-cream">🎙️</span> Start Recording Voice
             </Button>
-            <span className="text-xs text-muted-foreground">Microphone access required</span>
+            <span className="text-xs text-beige/60">Microphone access required</span>
           </div>
         )}
 
         {/* 2. Live Recording State */}
         {recordingState === 'recording' && (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-center p-6 bg-muted/80 rounded-card border border-card-border">
+            <div className="flex items-center justify-center p-6 bg-surface2 rounded-card border border-border">
               <div className="flex items-center gap-1.5">
                 {[40, 70, 30, 90, 60, 80, 45, 95, 60, 30, 75].map((h, i) => (
                   <span
                     key={i}
                     style={{ height: `${h}%` }}
-                    className="w-1.5 rounded-full bg-accent animate-pulse transition-all duration-150 h-8"
+                    className="w-1.5 rounded-full bg-burgundy animate-pulse transition-all duration-150 h-8"
                   />
                 ))}
               </div>
@@ -242,24 +241,24 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
               >
                 <span>⏹️</span> Stop & Review Recording
               </Button>
-              <span className="text-xs text-muted-foreground">Speak naturally about your accomplishments & blockers...</span>
+              <span className="text-xs text-beige/60">Speak naturally about your accomplishments & blockers...</span>
             </div>
           </div>
         )}
 
-        {/* 3. Recorded State (Audio Preview & Transcribe action) */}
+        {/* 3. Recorded State */}
         {recordingState === 'recorded' && audioUrl && (
-          <div className="flex flex-col gap-3 rounded-card bg-muted/90 p-4 border border-card-border">
+          <div className="flex flex-col gap-3 rounded-card bg-surface2 p-4 border border-border">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-semibold uppercase tracking-wider text-beige/60">
                 Audio Preview ({formatTime(recordingTime)})
               </span>
-              <span className="text-[11px] text-accent font-medium">Ready for local transcription</span>
+              <span className="text-[11px] text-beige font-medium">Ready for local transcription</span>
             </div>
 
-            <audio controls src={audioUrl} className="w-full h-10 accent-primary" />
+            <audio controls src={audioUrl} className="w-full h-10 accent-burgundy" />
 
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-card-border/60">
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border">
               <Button variant="ghost" onClick={discardRecording} className="text-xs">
                 🗑️ Discard
               </Button>
@@ -272,32 +271,32 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
 
         {/* 4. Transcribing State */}
         {recordingState === 'transcribing' && (
-          <div className="flex flex-col items-center justify-center rounded-card bg-muted/90 p-8 border border-card-border text-center">
-            <div className="h-7 w-7 animate-spin rounded-full border-3 border-secondary-foreground/30 border-t-accent mb-3" />
-            <p className="text-sm font-bold text-foreground font-display">Transcribing locally with faster-whisper Tiny...</p>
-            <p className="text-xs text-muted-foreground mt-1">Zero cloud API costs. CPU INT8 processing takes a few moments.</p>
+          <div className="flex flex-col items-center justify-center rounded-card bg-surface2 p-8 border border-border text-center">
+            <div className="h-7 w-7 animate-spin rounded-full border-3 border-beige/30 border-t-cream mb-3" />
+            <p className="text-sm font-bold text-cream">Transcribing locally with faster-whisper Tiny...</p>
+            <p className="text-xs text-beige/60 mt-1">Zero cloud API costs. CPU INT8 processing takes a few moments.</p>
           </div>
         )}
 
-        {/* 5. Transcribed State (Editable Review Workflow) */}
+        {/* 5. Transcribed State */}
         {recordingState === 'transcribed' && (
-          <div className="flex flex-col gap-3 rounded-card bg-secondary/80 p-5 border border-primary/40 shadow-soft">
+          <div className="flex flex-col gap-3 rounded-card bg-surface2 p-5 border border-border">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-secondary-foreground flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-beige flex items-center gap-1.5">
                 <span>✏️</span> Review & Edit Transcript Before Submission
               </span>
-              <span className="text-[11px] text-accent font-mono">Editable text</span>
+              <span className="text-[11px] text-cream font-mono">Editable text</span>
             </div>
 
             <textarea
               rows={5}
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
-              className="w-full resize-none rounded-card border border-card-border bg-background/90 p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary leading-relaxed"
+              className="w-full resize-none input-dark p-3.5 text-sm text-cream placeholder:text-beige/40 leading-relaxed"
               placeholder="Your transcribed reflection appears here..."
             />
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-card-border/60">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border">
               <Button variant="ghost" onClick={discardRecording} disabled={isSubmitting} className="text-xs">
                 Discard Recording
               </Button>

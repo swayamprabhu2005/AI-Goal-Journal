@@ -23,6 +23,13 @@ class WhisperService:
                     cls._instance = cls()
         return cls._instance
 
+    def preload(self):
+        """Pre-loads the Whisper Tiny model into memory asynchronously."""
+        try:
+            self._load_model()
+        except Exception as e:
+            logger.warning("Whisper model preloading deferred: %s", e)
+
     def _load_model(self):
         if self._model is None:
             with self._init_lock:
@@ -60,25 +67,29 @@ class WhisperService:
 
         temp_file_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_audio:
-                temp_audio.write(audio_bytes)
-                temp_file_path = temp_audio.name
+            # Write bytes and explicitly close file to prevent Windows file-lock conflicts
+            temp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+            temp_file.write(audio_bytes)
+            temp_file.flush()
+            temp_file.close()
+            temp_file_path = temp_file.name
 
             # Transcribe with faster-whisper
             segments, info = self._model.transcribe(
                 temp_file_path,
-                beam_size=1,  # Fast greedy decoding for low memory/CPU
+                beam_size=1,  # Fast greedy decoding
                 language="en",
-                vad_filter=True,  # Filter out silence
+                vad_filter=False, # Disable VAD filter to avoid dropping short speech segments
             )
 
             text_segments = []
             for segment in segments:
-                text_segments.append(segment.text.strip())
+                if segment.text and segment.text.strip():
+                    text_segments.append(segment.text.strip())
 
             full_transcript = " ".join(text_segments).strip()
-            duration = float(info.duration) if hasattr(info, "duration") else 0.0
-            language = str(info.language) if hasattr(info, "language") else "en"
+            duration = float(info.duration) if hasattr(info, "duration") and info.duration else 0.0
+            language = str(info.language) if hasattr(info, "language") and info.language else "en"
 
             return full_transcript, duration, language
 

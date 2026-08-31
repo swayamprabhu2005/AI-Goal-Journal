@@ -3,9 +3,12 @@ import logging
 from typing import Optional, Any
 from app.models.domain import JournalEntry
 from app.schemas.journal import JournalCreate, JournalUpdate
-from app.repositories.in_memory import journal_repo
+from app.schemas.goal import GoalUpdate
+from app.repositories.postgres import journal_repo
 from app.services.goal_service import goal_service
 from app.services.gemini_service import gemini_service
+from app.services.progress_service import progress_service
+from app.schemas.progress import ProgressCreate
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ class JournalService:
         # 3. Call Gemini AI extraction
         ai_raw = gemini_service.analyze_journal(content=content, existing_goals=goals_dict_list)
 
-        # 4. Perform deterministic matching on extracted activities
+        # 4. Perform deterministic matching on extracted activities & record progress
         activities = ai_raw.get("activities", [])
         for act in activities:
             text = act.get("text", "")
@@ -42,6 +45,45 @@ class JournalService:
             if matched_id:
                 act["related_goal_id"] = matched_id
                 act["related_goal_title"] = matched_title
+
+        # 5. Process AI Progress Updates & save to progress_repo
+        progress_updates = ai_raw.get("progress_updates", [])
+        for prog in progress_updates:
+            hint = prog.get("related_goal_hint")
+            note = prog.get("note", "AI journal progress detection")
+            q_comp = prog.get("quantified_completed")
+            q_tot = prog.get("quantified_total")
+            effort = prog.get("effort_level", "moderate")
+            inc = prog.get("progress_increment", 15)
+
+            matched_id, matched_title = goal_service.match_activity_to_existing_goal(
+                activity_text=note, hint=hint, existing_goals=existing_goals
+            )
+            if matched_id:
+                existing_goal = goal_service.get_goal(user_id=user_id, goal_id=matched_id)
+                current_val = existing_goal.progress_value if existing_goal else 0
+
+                if q_comp is not None and q_tot is not None and q_tot > 0:
+                    new_val = min(100, max(current_val, int((q_comp / q_tot) * 100)))
+                elif effort == "completion":
+                    new_val = 100
+                else:
+                    effort_inc = 5 if effort == "minor" else (15 if effort == "moderate" else 25)
+                    actual_inc = min(30, max(effort_inc, inc))
+                    new_val = min(100, current_val + actual_inc)
+
+                progress_service.record_progress(
+                    user_id=user_id,
+                    goal_id=matched_id,
+                    data=ProgressCreate(progress_value=new_val, note=f"{note} (Progress: {new_val}%)")
+                )
+                # Update goal in repository with new progress & note
+                new_status = "Completed" if new_val >= 100 else existing_goal.status
+                goal_service.update_goal(
+                    user_id=user_id,
+                    goal_id=matched_id,
+                    data=GoalUpdate(progress_value=new_val, status=new_status, latest_progress_note=note)
+                )
 
         # 5. Deterministic matching on extracted goals
         goals_suggested = ai_raw.get("goals", [])
@@ -61,6 +103,7 @@ class JournalService:
             user_id=user_id,
             content=content,
             source=data.source or "text",
+            title=ai_raw.get("title"),
             ai_analysis=ai_raw,
         )
 

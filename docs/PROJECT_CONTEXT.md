@@ -67,7 +67,46 @@ Traditional productivity tools place a heavy manual burden on users: checkboxes 
 
 ---
 
-## 5. Security & Privacy Decisions
+## 5. Upcoming & Planned Features Roadmap (Aditya — Feature Scope Update)
+
+> [!IMPORTANT]
+> The features listed in this section are **NEW PLANNED FEATURES** for upcoming development iterations. They are documented here to provide full architectural context for the team and AI assistants.
+
+```text
+Goal Progress
+     ↓
+Habit Tracker
+     ↓
+Daily Streak System
+
+Goals + target_date
+     ↓
+Calendar
+     ↓
+Reminders
+
+Journals + Progress + Activity + Blockers
+     ↓
+Personal Productivity Score
+```
+
+### Roadmap Specifications (Planned)
+1. **Habit Tracker (Planned)**:
+   - Track recurring daily/weekly habits.
+   - Record completion and log habit activity.
+   - Future integration: Automatic journal-based habit detection from reflection entries via Gemini AI.
+2. **Daily Streak System (Planned)**:
+   - Calculate consecutive active days based on qualifying daily goal progress and completed habit activities.
+   - Boost user consistency and daily reflection habits.
+3. **Goal Calendar + Reminders (Planned)**:
+   - Map active goals with `target_date` attributes onto a interactive calendar grid.
+   - Provide automated deadlines, milestone alerts, and timely user notifications.
+4. **Personal Productivity Score (Planned)**:
+   - Deterministic 0–100 daily productivity index calculated from completed activities, goal progress values, journal consistency, and active blocker penalties.
+
+---
+
+## 6. Security & Privacy Decisions
 
 1. **Zero Secret Leakage**: `GEMINI_API_KEY` is strictly backend-only. Never prefixed with `VITE_` or exposed in client bundles.
 2. **Authoritative Identity**: The backend derives the user ID strictly from the verified Firebase ID Token (`get_current_user` dependency) and never trusts client-supplied user IDs.

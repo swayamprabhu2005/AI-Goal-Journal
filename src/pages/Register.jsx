@@ -1,151 +1,210 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import Card from '../components/Card';
-import Input from '../components/Input';
-import Button from '../components/Button';
-import { useAuth } from '../context/AuthContext';
+import { useState } from "react";
+import { User, Mail, Lock, Eye, EyeOff, ArrowRight, Target } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
+    setError("");
 
-    if (!email || !password || !confirmPassword) {
-      setError('Please fill in all fields.');
+    if (!accepted) {
+      setError("Please accept the terms before continuing.");
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+    setLoading(true);
 
     try {
-      setLoading(true);
       await register(email, password);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      console.error('Registration error:', err);
-      let msg = 'Failed to create account. Please try again.';
-      if (err.code === 'auth/email-already-in-use') {
-        msg = 'An account with this email already exists.';
-      } else if (err.code === 'auth/invalid-email') {
-        msg = 'Please enter a valid email address.';
-      } else if (err.code === 'auth/weak-password') {
-        msg = 'Password should be at least 6 characters long.';
-      } else if (err.message) {
-        msg = err.message;
-      }
-      setError(msg);
+      setError(err.message || "Unable to create account.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 selection:bg-primary selection:text-white">
-      <div className="w-full max-w-md">
-        {/* Brand Return Link */}
-        <div className="mb-6 text-center">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 font-display text-2xl font-bold tracking-tight text-foreground hover:opacity-90 transition"
-          >
-            <span>AI Goal Journal</span>
-          </Link>
+    <div className="min-h-screen bg-background text-cream">
+      <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="relative hidden overflow-hidden border-r border-border lg:flex">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(109,41,50,0.35),transparent_45%)]" />
+
+          <div className="relative flex w-full flex-col justify-between p-12 xl:p-16">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-burgundy">
+                <Target size={21} className="text-cream" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-cream">GOAL JOURNAL</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-beige">
+                  Personal growth system
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="section-label">BUILD. REFLECT. IMPROVE.</p>
+              <h1 className="mt-5 text-5xl font-semibold leading-[1.05] tracking-[-0.05em] text-cream xl:text-6xl">
+                Your goals deserve
+                <br />
+                a system.
+              </h1>
+              <p className="mt-6 max-w-lg text-base leading-7 text-beige">
+                Keep your goals, journal entries, progress, and insights together in one focused workspace.
+              </p>
+            </div>
+
+            <p className="text-xs text-beige/70">
+              AI Goal Journal & Accountability Coach
+            </p>
+          </div>
         </div>
 
-        <Card className="w-full border-card-border bg-card p-6 sm:p-8 shadow-soft">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-display">
-            Create your account
-          </h1>
+        <div className="flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md">
+            <div className="mb-8 lg:hidden">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-burgundy">
+                  <Target size={21} className="text-cream" />
+                </div>
+                <p className="text-sm font-bold text-cream">GOAL JOURNAL</p>
+              </div>
+            </div>
 
-          <p className="mt-1 mb-6 text-xs text-muted-foreground">
-            Start transforming daily reflections into structured momentum.
-          </p>
+            <div className="panel p-7 shadow-card md:p-9">
+              <div className="mb-7">
+                <p className="section-label">GET STARTED</p>
+                <h2 className="mt-2 text-3xl font-semibold text-cream">
+                  Create account
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-beige">
+                  Create your personal workspace and start tracking your growth.
+                </p>
+              </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Input
-              id="register-email"
-              label="Email Address"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-cream">
+                    Full name
+                  </label>
+                  <div className="relative">
+                    <User
+                      size={17}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-beige/60"
+                    />
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your name"
+                      className="input-dark py-3 pl-11 pr-4 text-sm"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <Input
-              id="register-password"
-              label="Password (min 6 chars)"
-              type="password"
-              placeholder="Create a secure password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-cream">
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Mail
+                      size={17}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-beige/60"
+                    />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="input-dark py-3 pl-11 pr-4 text-sm"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <Input
-              id="confirm-password"
-              label="Confirm Password"
-              type="password"
-              placeholder="Repeat your password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-cream">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock
+                      size={17}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-beige/60"
+                    />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Create a password"
+                      className="input-dark py-3 pl-11 pr-12 text-sm"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-beige/60 hover:text-cream"
+                    >
+                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
+                </div>
 
-            {error && (
-              <p
-                role="alert"
-                className="rounded-card bg-status-error-bg p-3 text-xs text-status-error border border-status-error/30"
-              >
-                {error}
-              </p>
-            )}
+                <label className="flex items-start gap-3 text-xs leading-5 text-beige">
+                  <input
+                    type="checkbox"
+                    checked={accepted}
+                    onChange={(e) => setAccepted(e.target.checked)}
+                    className="mt-1 accent-burgundy"
+                  />
+                  <span>
+                    I agree to the terms and understand that my journal activity will be used to generate personalized insights.
+                  </span>
+                </label>
 
-            <Button
-              type="submit"
-              loading={loading}
-              disabled={loading}
-              className="mt-2 w-full py-3"
-            >
-              Create Free Account
-            </Button>
-          </form>
+                {error && (
+                  <div className="rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+                    {error}
+                  </div>
+                )}
 
-          <div className="mt-6 pt-4 border-t border-card-border text-center text-xs text-muted-foreground">
-            <span>Already have an account? </span>
-            <Link
-              to="/login"
-              className="font-semibold text-secondary-foreground hover:text-foreground underline"
-            >
-              Sign in here
-            </Link>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="primary-button w-full"
+                >
+                  {loading ? "Creating account..." : "Create account"}
+                  {!loading && <ArrowRight size={16} />}
+                </button>
+              </form>
+
+              <div className="mt-7 border-t border-border pt-6">
+                <p className="text-center text-sm text-beige">
+                  Already have an account?{" "}
+                  <Link
+                    to="/login"
+                    className="font-semibold text-cream hover:text-beige underline"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </div>
+            </div>
           </div>
-        </Card>
-
-        <div className="mt-4 text-center">
-          <Link
-            to="/"
-            className="text-xs text-muted-foreground hover:text-foreground transition font-medium"
-          >
-            ← Back to Home
-          </Link>
         </div>
       </div>
     </div>
