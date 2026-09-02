@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 /**
  * src/components/CircularProgress.jsx
  * Circular progress indicator built with SVG.
@@ -5,8 +7,8 @@
 export default function CircularProgress({
   value,
   className = "w-24 h-24",
-  trackClass = "stroke-[#352024]",
-  fillClass = "stroke-[#561C24]",
+  trackClass = "stroke-slate-200",
+  fillClass = "stroke-indigo-600",
   center,
 }) {
   const safeValue = (() => {
@@ -18,7 +20,21 @@ export default function CircularProgress({
   const radius = 38;
   const strokeWidth = 7;
   const circumference = 2 * Math.PI * radius;
-  const dashoffset = circumference - (safeValue / 100) * circumference;
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      setShown(safeValue);
+      return undefined;
+    }
+
+    setShown(0);
+    const id = requestAnimationFrame(() => setShown(safeValue));
+    return () => cancelAnimationFrame(id);
+  }, [safeValue]);
+
+  const dashoffset = circumference - (shown / 100) * circumference;
 
   return (
     <div className={"relative inline-flex items-center justify-center " + className}>
@@ -50,12 +66,12 @@ export default function CircularProgress({
             strokeDasharray={circumference}
             strokeDashoffset={dashoffset}
             style={{
-              transition: "stroke-dashoffset 500ms ease, stroke 500ms ease",
+              transition: "stroke-dashoffset 900ms cubic-bezier(0.16, 1, 0.3, 1), stroke 500ms ease",
             }}
           />
         </g>
       </svg>
-      <span className="absolute pointer-events-none text-xs font-semibold text-cream sm:text-sm">
+      <span className="absolute pointer-events-none text-xs font-bold text-slate-900 sm:text-sm">
         {center ?? `${safeValue}%`}
       </span>
     </div>

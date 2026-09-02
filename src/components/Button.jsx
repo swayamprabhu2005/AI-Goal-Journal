@@ -1,9 +1,9 @@
 const VARIANTS = {
-  primary: 'bg-burgundy text-cream hover:bg-wine shadow-glow active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 disabled:shadow-none border border-border',
-  secondary: 'bg-surface2 text-cream border border-border hover:bg-burgundy/40 shadow-card active:scale-[0.98]',
-  accent: 'bg-cream text-burgundy hover:bg-beige active:scale-[0.98]',
-  ghost: 'bg-transparent text-beige hover:bg-surface2 hover:text-cream active:scale-[0.98]',
-  danger: 'bg-status-error text-white hover:brightness-110 active:scale-[0.98]',
+  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:bg-indigo-300 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-0 border border-transparent',
+  secondary: 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50/60 shadow-sm hover:-translate-y-0.5 active:scale-[0.98] disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 disabled:translate-y-0',
+  accent: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 hover:-translate-y-0.5 active:scale-[0.98]',
+  ghost: 'bg-transparent text-indigo-600 hover:bg-indigo-50/60 active:scale-[0.98] disabled:text-slate-400',
+  danger: 'bg-red-500 text-white hover:bg-red-600 shadow-sm hover:-translate-y-0.5 active:scale-[0.98] disabled:bg-red-300 disabled:translate-y-0',
 };
 
 export default function Button({
@@ -19,9 +19,9 @@ export default function Button({
     <button
       type={type}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-card px-4 py-2.5 text-sm font-semibold
-        transition-all duration-150 disabled:cursor-not-allowed
-        focus:outline-none focus-visible:ring-2 focus-visible:ring-wine focus-visible:ring-offset-2 focus-visible:ring-offset-background
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+        transition-all duration-200 disabled:cursor-not-allowed
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50
         ${VARIANTS[variant] || VARIANTS.primary} ${className}`}
       {...props}
     >

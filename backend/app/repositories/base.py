@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional, Any
 
 from app.models.domain import (
@@ -7,6 +8,8 @@ from app.models.domain import (
     Progress,
     JournalEntry,
     WeeklySummary,
+    Habit,
+    HabitLog,
 )
 
 
@@ -172,4 +175,71 @@ class AbstractSummaryRepository(ABC):
         self,
         user_id: str
     ) -> Optional[WeeklySummary]:
+        pass
+
+class AbstractHabitRepository(ABC):
+
+    @abstractmethod
+    def create(
+        self,
+        habit: Habit
+    ) -> Habit:
+        pass
+
+    @abstractmethod
+    def get_by_id(
+        self,
+        user_id: str,
+        habit_id: str
+    ) -> Optional[Habit]:
+        pass
+
+    @abstractmethod
+    def get_all_by_user(
+        self,
+        user_id: str
+    ) -> list[Habit]:
+        pass
+
+    @abstractmethod
+    def update(
+        self,
+        user_id: str,
+        habit_id: str,
+        **kwargs
+    ) -> Optional[Habit]:
+        pass
+
+    @abstractmethod
+    def delete(
+        self,
+        user_id: str,
+        habit_id: str
+    ) -> bool:
+        pass
+
+    @abstractmethod
+    def add_log(
+        self,
+        user_id: str,
+        habit_id: str,
+        completed_date: datetime
+    ) -> Optional[HabitLog]:
+        pass
+
+    @abstractmethod
+    def remove_log(
+        self,
+        user_id: str,
+        habit_id: str,
+        completed_date: datetime
+    ) -> bool:
+        pass
+
+    @abstractmethod
+    def get_logs(
+        self,
+        user_id: str,
+        habit_id: str
+    ) -> list[HabitLog]:
         pass

@@ -1,26 +1,24 @@
 # Dependencies & Build Output
 node_modules/
-frontend/node_modules/
 dist/
-frontend/dist/
 dist-ssr/
+build/
 *.local
 
-# Environment Variables & Secrets
+# Environment Variables & Secrets (NEVER commit secrets)
 .env
 .env.local
 .env.*.local
-frontend/.env
-backend/.env
+*.env
 
 # Python / FastAPI Backend
 __pycache__/
-backend/__pycache__/
-backend/app/__pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
+*.so
 .pytest_cache/
-backend/.pytest_cache/
+**/.pytest_cache/
 .coverage
 htmlcov/
 .venv/
@@ -29,21 +27,43 @@ ENV/
 env/
 *.db
 *.sqlite
+*.sqlite3
 
-# Logs, Audio Transcripts & Temporary Scratch Files
-*.log
-*.tmp
-*.webm
+# Audio Files & Temporary Transcriptions (Zero audio persistence)
 *.wav
+*.mp3
+*.webm
+*.ogg
+*.m4a
+*.tmp
+*.flac
+temp_audio*
+
+# Logs & Temporary Scratch Files
+*.log
 doc_text.txt
 scratch/
 
-# Agent System Logs & Artifacts
+# Agent & AI Customizations
 .system_generated/
 .user_uploaded/
+.gemini/
+.antigravity/
 
-# OS & IDE Artifacts
+# Office Temp / Lock Files
+~$*.docx
+~$*.doc
+~$*.xlsx
+~$*.pptx
+
+# Root Temporary Assets (keep public/logo.png and src/assets/logo.png)
+/Logo.png
+/logo.png
+
+# OS & Editor Artifacts
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+*.swp
+*.swo

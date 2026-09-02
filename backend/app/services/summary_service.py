@@ -2,14 +2,31 @@ import uuid
 import logging
 from typing import Optional
 from app.models.domain import WeeklySummary
-from app.repositories.postgres import summary_repo, journal_repo, goal_repo
+from app.repositories.in_memory import summary_repo, journal_repo, goal_repo
 from app.services.gemini_service import gemini_service
+from app.core.crypto import crypto_service
 
 logger = logging.getLogger(__name__)
 
 class SummaryService:
+    def _decrypt_summary(self, summary: Optional[WeeklySummary]) -> Optional[WeeklySummary]:
+        if not summary:
+            return None
+        return WeeklySummary(
+            id=summary.id,
+            user_id=summary.user_id,
+            headline=summary.headline,
+            wins=summary.wins,
+            recurring_blockers=summary.recurring_blockers,
+            goal_status_changes=summary.goal_status_changes,
+            mood_trend=summary.mood_trend,
+            coaching_suggestion=crypto_service.decrypt(summary.coaching_suggestion) or "",
+            created_at=summary.created_at,
+        )
+
     def get_latest_summary(self, user_id: str) -> Optional[WeeklySummary]:
-        return summary_repo.get_latest_by_user(user_id)
+        summary = summary_repo.get_latest_by_user(user_id)
+        return self._decrypt_summary(summary)
 
     def generate_weekly_summary(self, user_id: str, user_name: str = "") -> WeeklySummary:
         # 1. Fetch user's journals and goals
@@ -17,7 +34,7 @@ class SummaryService:
         journals_dict_list = [
             {
                 "id": j.id,
-                "content": j.content,
+                "content": crypto_service.decrypt(j.content),
                 "created_at": j.created_at.isoformat(),
                 "ai_analysis": j.ai_analysis,
             }
@@ -51,11 +68,11 @@ class SummaryService:
             recurring_blockers=ai_summary.get("recurring_blockers", []),
             goal_status_changes=ai_summary.get("goal_status_changes", []),
             mood_trend=ai_summary.get("mood_trend", "stable"),
-            coaching_suggestion=ai_summary.get("coaching_suggestion", ""),
+            coaching_suggestion=crypto_service.encrypt(ai_summary.get("coaching_suggestion", "")),
         )
 
         saved = summary_repo.save(summary)
         logger.info("Generated new weekly summary %s for user %s", saved.id, user_id)
-        return saved
+        return self._decrypt_summary(saved)
 
 summary_service = SummaryService()

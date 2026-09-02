@@ -39,3 +39,27 @@ class ProgressResponse(BaseModel):
     progress_value: int
     note: Optional[str] = None
     created_at: datetime
+
+
+class ProgressHistoryItem(ProgressResponse):
+    change_from_previous: int = Field(
+        0,
+        description="Change in percentage points compared to the previous update"
+    )
+
+
+class ProgressTrendResponse(BaseModel):
+    goal_id: str
+    goal_title: Optional[str] = None
+    current_progress: int
+    initial_progress: int
+    net_change: int
+    trend_direction: str = Field(
+        ...,
+        description="Trend direction: improving, stagnant, or declining"
+    )
+    total_updates: int
+    history: list[ProgressHistoryItem] = Field(
+        default_factory=list,
+        description="Complete progress updates ordered chronologically"
+    )

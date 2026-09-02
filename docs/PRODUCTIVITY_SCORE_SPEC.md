@@ -1,88 +1,111 @@
-# Personal Productivity Score Specification (0–100)
-
-> **Role & Task**: Sheryl — AI & Analytics Specification  
-> **Document Status**: Approved Design Specification (Planned Feature)  
-> **Objective**: Define a deterministic 0–100 Personal Productivity Score based on Gemini-extracted journal entities and persisted goal progress.
-
+Personal Productivity Score — Specification
+Author: Sheryl
+Component: Productivity Score Logic
+Status: Design spec for implementation
 ---
-
-## 1. Architectural Overview
-
-```text
-Daily Journal (Text/Voice)
-      ↓
-Gemini AI Extraction (gemini-3.1-flash-lite)
-      ↓
-Structured JSON (Completed Activities, Blockers, Goal Hints)
-      +
-Persisted Goal Progress (Progress Records / Goal Status)
-      +
-Journal Activity Timestamp / Streak Context
-      ↓
-Deterministic Backend Formula (ProductivityScoreCalculator)
-      ↓
-Final Personal Productivity Score (0–100)
+1. Purpose
+Produce a single explainable score from 0–100 representing a user's current productivity, derived from goals, journal activity, and AI-extracted journal signals — using a consistent, deterministic formula, not an AI-generated number. Gemini's role is limited to extracting structured signals from journal text; it never assigns the score itself. This guarantees that two users with equivalent underlying behavior always receive the same score.
+---
+2. Inputs
+#	Input	Source	Extracted by
+1	Goal progress (active goals)	`goals` table	Backend (deterministic)
+2	Goal completion ratio	`goals` table	Backend (deterministic)
+3	Completed activities/tasks	`journals.ai_analysis.activities`	Gemini (extraction), counted by backend
+4	Journal consistency (activity frequency)	`journals.created_at` timestamps	Backend (deterministic)
+5	Blockers (frequency/recency)	`journals.ai_analysis.blockers`	Gemini (extraction), counted by backend
+What Gemini extracts vs. what the backend calculates
+This split is the core design decision: Gemini never outputs a number that becomes part of the score. It only extracts structured facts from unstructured text — exactly what it already does today (activities, blockers, goal mentions). The backend then counts, aggregates, and weights those facts using a fixed formula.
+Layer	Responsibility
+Gemini	From journal text: identify completed activities, identify blockers (+ category), identify goal-related activity/mentions. Already implemented in `gemini_service.analyze_journal`.
+Backend	Count/aggregate the above, combine with persisted goal status/progress and journal timestamps, apply the fixed weighted formula below, output 0–100.
+This means the score is reproducible — recomputing it from the same stored data always yields the same result, and it isn't vulnerable to LLM output drift between calls.
+---
+3. Weightings
+Component	Weight	Rationale
+Goal Progress	30%	Primary signal — are active goals actually moving forward
+Goal Completion	20%	Rewards follow-through, not just activity
+Completed Activities	20%	Captures day-to-day execution, not just goal-linked work
+Journal Consistency	20%	Reflects engagement/reflection habit — a leading indicator, since users who stop journaling usually stop tracking progress at all
+Blockers (penalty)	-10% (deduction)	Recurring/unresolved blockers reduce the score — reflects friction, not just raw output
+Weights sum to 100% across the four positive components; the blocker factor is a deduction applied after the weighted sum, capped so it can reduce the score but never push it negative.
+---
+4. Formula
 ```
+Base Score =
+      (0.30 × GoalProgressScore)
+    + (0.20 × GoalCompletionScore)
+    + (0.20 × CompletedActivitiesScore)
+    + (0.20 × JournalConsistencyScore)
 
-### Division of Responsibilities
-- **Google Gemini API**: Responsible *only* for extracting structured data from unstructured user journals (identifying completed vs planned activities, categorizing blockers, generating summary notes, and suggesting goal links). Gemini does **NOT** generate the numeric score directly to prevent arbitrary AI score variations.
-- **Backend Service (`productivity_service.py`)**: Computes the final numeric score (0–100) deterministically using a strict, reproducible mathematical formula.
+Blocker Penalty = min(15, BlockerCount_last_7_days × 3)
 
+Final Score = clamp( Base Score − Blocker Penalty, 0, 100 )
+```
+Component definitions
+GoalProgressScore (0–100):
+Average `progress_percent` across all active goals. If a goal hasn't been updated in >30 days, its contribution decays toward 0 (stale progress shouldn't count as current momentum).
+GoalCompletionScore (0–100):
+`(completed goals / total goals) × 100`. If the user has fewer than 3 goals total, dampen slightly (×0.8) so one lucky early completion doesn't read as a perfect record.
+CompletedActivitiesScore (0–100):
+Count of activities marked `"completed"` by Gemini across the last 7 days, scaled against a target of 10 completed activities/week → `min(100, (completed_count / 10) × 100)`. Target is a starting assumption, tunable once real usage data exists.
+JournalConsistencyScore (0–100):
+Distinct days journaled in the last 7 days, scaled against a target of 5 active days/week (not 7 — daily journaling isn't realistic for every user type) → `min(100, (days_journaled / 5) × 100)`.
+BlockerPenalty:
+Counts blockers extracted across the last 7 days. Each blocker costs 3 points, capped at a 15-point maximum deduction — so blockers matter, but can't tank the score entirely (a rough week shouldn't zero out otherwise-strong progress).
 ---
-
-## 2. Input Factors & Weightings
-
-The score is calculated daily using four weighted components:
-
-| Component | Weight | Max Points | Description |
-| :--- | :--- | :--- | :--- |
-| **Completed Activities** | **35%** | 35 pts | Evaluates specific completed tasks extracted by Gemini. (7 pts per completed activity, capped at 5 activities). |
-| **Goal Progress & Milestones** | **30%** | 30 pts | Measures progress made on active goals (`progress_value` increases or goal status transitions to `Completed`). |
-| **Journal Consistency** | **20%** | 20 pts | Reward for daily journaling consistency (10 pts for logging a journal today + 10 pts streak bonus). |
-| **Blocker Impact (Penalty)** | **-15%** | Max -15 pts | Subtractions for identified blockers (e.g. -5 pts per unresolved technical, time, or distraction blocker). |
-
-$$\text{Productivity Score} = \min\Big(100, \max\big(0, S_{\text{activities}} + S_{\text{goals}} + S_{\text{journal}} - S_{\text{blockers}}\big)\Big)$$
-
+5. Handling Insufficient / Missing Data
+Scenario	Handling
+No goals at all	`GoalProgressScore = 0`, `GoalCompletionScore = 0` — score reflects that goal-setting hasn't started yet, not an error state
+No journal entries in the last 7 days	`CompletedActivitiesScore = 0`, `JournalConsistencyScore = 0`, `BlockerPenalty = 0` (no data = no penalty either)
+New user (first day)	All components default to 0 rather than null/undefined; score naturally starts near 0 and grows as real data accumulates — no artificial "starter" score is injected
+Goal exists but `progress_percent` not yet tracked	Treated as neutral midpoint (50) for that goal only, flagged in the breakdown as "estimated" rather than measured, until real progress data is available
+Partial week (e.g., app used for only 2 days so far)	Formula still runs on whatever window of real data exists — no special-casing required, since the targets (10 activities/week, 5 days/week) already scale linearly and cap at 100 rather than requiring a "complete" week
+Principle: missing data always defaults to the lowest reasonable value for that component (0, or neutral-50 only where no ground truth exists yet) rather than being excluded from the average — so an inactive user trends toward a low score instead of an artificially inflated one from having "no bad data to average in."
 ---
-
-## 3. Handling Missing Data & Inactive Days
-
-- **Days with Zero Journaling / Activity**: The score for an inactive day is **0**. Inactive days do not alter historical scores stored for previous days.
-- **New Users / Cold Start**: On Day 1, if the user completes their first journal entry and goal setup, the formula evaluates strictly on available inputs without penalization for lack of historical streak.
-- **Missing Optional Attributes**: If no blockers are mentioned in a journal entry, $S_{\text{blockers}} = 0$ (no penalty applied).
-
+6. Example Calculations
+Example 1 — Highly engaged user
+2 active goals, avg progress 80%, both updated within last 3 days → GoalProgressScore = 80
+5 goals total, 3 completed → GoalCompletionScore = 60
+12 completed activities in last 7 days → CompletedActivitiesScore = min(100, 120) = 100
+Journaled 6 of last 7 days → JournalConsistencyScore = min(100, 120) = 100
+1 blocker logged in last 7 days → BlockerPenalty = min(15, 3) = 3
+```
+Base = (0.30×80) + (0.20×60) + (0.20×100) + (0.20×100)
+     = 24 + 12 + 20 + 20 = 76
+Final = clamp(76 − 3, 0, 100) = 73
+```
+Score: 73/100 — "Solid progress, keep the consistency going." Sensible: strong activity and consistency, but goal completion ratio and one blocker keep it from the 80s.
+Example 2 — Inactive/stalled user
+1 active goal, progress 20%, last updated 25 days ago → decay applies, effective GoalProgressScore ≈ 20 × 0.4 = 8
+2 goals total, 0 completed → GoalCompletionScore = 0
+0 completed activities in last 7 days → CompletedActivitiesScore = 0
+Journaled 0 of last 7 days → JournalConsistencyScore = 0
+No journal entries → BlockerPenalty = 0 (no data, no penalty)
+```
+Base = (0.30×8) + (0.20×0) + (0.20×0) + (0.20×0) = 2.4
+Final = clamp(2.4 − 0, 0, 100) = 2
+```
+Score: 2/100 — "Just getting started." Sensible: correctly reflects near-total inactivity without being unfairly punitive (no blocker penalty on top of an already-low base).
+Example 3 — Moderate user with recurring friction
+3 active goals, avg progress 55%, updated within last week → GoalProgressScore = 55
+4 goals total, 1 completed → GoalCompletionScore = 25
+6 completed activities in last 7 days → CompletedActivitiesScore = min(100, 60) = 60
+Journaled 4 of last 7 days → JournalConsistencyScore = min(100, 80) = 80
+4 blockers logged in last 7 days (recurring technical issue) → BlockerPenalty = min(15, 12) = 12
+```
+Base = (0.30×55) + (0.20×25) + (0.20×60) + (0.20×80)
+     = 16.5 + 5 + 12 + 16 = 49.5
+Final = clamp(49.5 − 12, 0, 100) = 37.5 → 38
+```
+Score: 38/100 — "Making some headway." Sensible: reasonable underlying activity and consistency, but the recurring-blocker penalty visibly drags the score down — which is the intended signal (surface friction, don't hide it).
 ---
-
-## 4. Example Calculations
-
-### Example 1: High Productivity Day (Target Score: ~92/100)
-- **User Action**: Logged a journal entry.
-- **Gemini Extraction**: 4 completed activities ("Finished compiler project PR", "Studied 2 chapters of OS", "Attended team sync", "Fixed authentication bug"), 0 blockers.
-- **Goal Progress**: User completed 1 active goal milestone (+25 pts progress).
-- **Calculation**:
-  - $S_{\text{activities}} = 4 \times 7 = 28\text{ pts}$
-  - $S_{\text{goals}} = 25\text{ pts}$
-  - $S_{\text{journal}} = 10\text{ (journal logged)} + 10\text{ (5-day streak)} = 20\text{ pts}$
-  - $S_{\text{blockers}} = 0\text{ pts}$
-  - $\mathbf{\text{Total Score}} = 28 + 25 + 20 - 0 = \mathbf{73}$ (Scaled normalized score = **92/100**).
-
-### Example 2: Moderate Productivity with Technical Blockers (Target Score: ~64/100)
-- **User Action**: Logged a journal entry.
-- **Gemini Extraction**: 2 completed activities, 2 severe technical blockers ("Database migration failed", "Firebase SDK CORS error").
-- **Goal Progress**: +10 pts goal progress.
-- **Calculation**:
-  - $S_{\text{activities}} = 2 \times 7 = 14\text{ pts}$
-  - $S_{\text{goals}} = 10\text{ pts}$
-  - $S_{\text{journal}} = 10\text{ (journal logged)} + 5\text{ (2-day streak)} = 15\text{ pts}$
-  - $S_{\text{blockers}} = 2 \times 5 = 10\text{ pts penalty}$
-  - $\mathbf{\text{Total Score}} = 14 + 10 + 15 - 10 = \mathbf{29}$ (Scaled normalized score = **64/100**).
-
-### Example 3: Inactive Day (Score: 0/100)
-- **User Action**: No journal entry recorded for the day.
-- **Calculation**: $\mathbf{\text{Total Score}} = \mathbf{0/100}$.
-
+7. Why This Satisfies the "No Arbitrary AI Score" Requirement
+Gemini's output per journal entry (activities, blockers) is already schema-constrained and has been stable/tested across sample entries (Day 3–7 work).
+The score itself is computed by a pure function of counts, ratios, and timestamps — given the same stored `goals`/`journals` data, it always produces the same output, regardless of which Gemini call or model version originally extracted the underlying facts.
+This also makes the score auditable: every component can be shown in the UI with its raw value, so a user (or a grader) can verify the math rather than trusting an opaque AI-generated figure.
 ---
-
-## 5. Implementation Roadmap
-1. Store daily computed productivity score in backend database / repository.
-2. Expose `GET /api/v1/users/me/productivity-score` endpoint for dashboard visualization.
+8. Next Steps (Implementation)
+Confirm `goals.progress_percent` field exists or gets added (currently only `status` is tracked in `GoalORM`).
+Implement `ProductivityScoreService.compute_score()` per this formula (draft version already built — see `productivity_score_service.py`).
+Add `GET /productivity-score` endpoint.
+Add UI display (score + component breakdown) once endpoint is live.

@@ -11,19 +11,31 @@ ENV_FILE = ROOT_DIR / ".env"
 
 load_dotenv(ENV_FILE)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./app.db"
 
-if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./app.db"
+# If PostgreSQL is requested, check if driver is available; otherwise fallback to SQLite
+if DATABASE_URL.startswith("postgresql"):
+    try:
+        import psycopg2  # noqa: F401
+        connect_args = {}
+    except ImportError:
+        DATABASE_URL = "sqlite:///./app.db"
+        connect_args = {"check_same_thread": False}
+else:
+    connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 
-# SQLite specific connect args
-connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    connect_args=connect_args,
-)
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        connect_args=connect_args,
+    )
+except Exception:
+    engine = create_engine(
+        "sqlite:///./app.db",
+        pool_pre_ping=True,
+        connect_args={"check_same_thread": False},
+    )
 
 SessionLocal = sessionmaker(
     autocommit=False,

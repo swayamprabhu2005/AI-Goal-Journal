@@ -5,14 +5,24 @@ import {
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
-function createMockDevUser(email) {
-  const userEmail = email || 'swayamkiranprabhu2005@gmail.com';
-  return {
-    uid: 'dev-user-local-123',
-    email: userEmail,
-    displayName: userEmail.split('@')[0],
-    getIdToken: async () => 'mock-dev-token-123',
-  };
+function formatAuthError(err) {
+  const code = err?.code || '';
+  if (code === 'auth/invalid-credential') {
+    return 'Invalid email or password. If creating an account, please ensure Email/Password sign-in is enabled in Firebase Console under Authentication > Sign-in method.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Email/Password sign-in is disabled in Firebase Console. Go to Authentication > Sign-in method to enable it.';
+  }
+  if (code === 'auth/email-already-in-use') {
+    return 'An account with this email address already exists. Please sign in instead.';
+  }
+  if (code === 'auth/weak-password') {
+    return 'Password is too weak. Please use at least 6 characters.';
+  }
+  if (code === 'auth/user-not-found' || code === 'auth/wrong-password') {
+    return 'Incorrect email or password. Please try again.';
+  }
+  return err.message || 'Authentication error. Please try again.';
 }
 
 export async function register(email, password) {
@@ -20,18 +30,7 @@ export async function register(email, password) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (err) {
-    if (
-      err.code === 'auth/api-key-not-valid' ||
-      err.message?.includes('api-key-not-valid') ||
-      err.message?.includes('API key') ||
-      import.meta.env.VITE_FIREBASE_API_KEY === 'mock_key'
-    ) {
-      console.warn('Firebase API key is mock/invalid. Falling back to local development session.');
-      const mockUser = createMockDevUser(email);
-      localStorage.setItem('local_dev_user', JSON.stringify(mockUser));
-      return mockUser;
-    }
-    throw err;
+    throw new Error(formatAuthError(err));
   }
 }
 
@@ -40,26 +39,10 @@ export async function login(email, password) {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (err) {
-    if (
-      err.code === 'auth/api-key-not-valid' ||
-      err.message?.includes('api-key-not-valid') ||
-      err.message?.includes('API key') ||
-      import.meta.env.VITE_FIREBASE_API_KEY === 'mock_key'
-    ) {
-      console.warn('Firebase API key is mock/invalid. Falling back to local development session.');
-      const mockUser = createMockDevUser(email);
-      localStorage.setItem('local_dev_user', JSON.stringify(mockUser));
-      return mockUser;
-    }
-    throw err;
+    throw new Error(formatAuthError(err));
   }
 }
 
 export async function logout() {
-  localStorage.removeItem('local_dev_user');
-  try {
-    await signOut(auth);
-  } catch (e) {
-    // Ignore sign-out error in mock dev mode
-  }
+  await signOut(auth);
 }

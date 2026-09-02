@@ -5,8 +5,13 @@ import logging
 from typing import Optional, Any
 from google import genai
 from app.core.config import settings
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
+
+today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+ACRONYMS = {"es", "dsa", "daa", "os", "dbms", "pr", "api", "ui", "ux", "ai", "ml", "sql", "cs", "it"}
 
 def _clean_json_response(raw_text: str) -> str:
     """Strip markdown backticks or extra text wrapping JSON."""
@@ -16,6 +21,175 @@ def _clean_json_response(raw_text: str) -> str:
     if match:
         return match.group(1).strip()
     return text
+
+def parse_due_date_from_text(text: str) -> Optional[str]:
+    """Parse relative date expressions (tomorrow, tommorow, 1st of oct, next Friday, in 3 days) into YYYY-MM-DD ISO string."""
+    if not text:
+        return None
+    lower = text.lower()
+    now = datetime.now(timezone.utc)
+    
+    if "day after tomorrow" in lower:
+        return (now + timedelta(days=2)).strftime("%Y-%m-%d")
+    elif "tomorrow" in lower or "tommorow" in lower:
+        return (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    elif "next week" in lower:
+        return (now + timedelta(days=7)).strftime("%Y-%m-%d")
+    
+    match_days = re.search(r"in\s+(\d+)\s+days?", lower)
+    if match_days:
+        num_days = int(match_days.group(1))
+        return (now + timedelta(days=num_days)).strftime("%Y-%m-%d")
+        
+    weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    for idx, day in enumerate(weekdays):
+        if day in lower:
+            current_weekday = now.weekday()
+            days_ahead = idx - current_weekday
+            if days_ahead <= 0:
+                days_ahead += 7
+            return (now + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
+    month_names = {
+        "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+        "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+        "aug": 8, "august": 8, "sep": 9, "september": 9, "sept": 9,
+        "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12
+    }
+
+    match_date = re.search(r"(\d+)(?:st|nd|rd|th)?\s+(?:of\s+)?([a-z]+)", lower) or re.search(r"([a-z]+)\s+(\d+)(?:st|nd|rd|th)?", lower)
+    if match_date:
+        g1, g2 = match_date.group(1), match_date.group(2)
+        day_val, month_val = None, None
+        if g1.isdigit() and g2 in month_names:
+            day_val = int(g1)
+            month_val = month_names[g2]
+        elif g2.isdigit() and g1 in month_names:
+            day_val = int(g2)
+            month_val = month_names[g1]
+
+        if day_val and month_val:
+            year_val = now.year
+            if month_val < now.month or (month_val == now.month and day_val < now.day):
+                year_val += 1
+            return f"{year_val}-{month_val:02d}-{day_val:02d}"
+
+    return None
+
+def preserve_acronyms(title: str) -> str:
+    words = title.split()
+    res = []
+    for w in words:
+        clean_w = re.sub(r"\W+", "", w.lower())
+        if clean_w in ACRONYMS:
+            res.append(w.upper())
+        else:
+            res.append(w)
+    return " ".join(res)
+
+def clean_title(text_snippet: str) -> str:
+    """Clean sentence/snippet into a concise 3-7 word title."""
+    if not text_snippet:
+        return "New Goal"
+    s = text_snippet.strip()
+
+    # Check for specific course assignment pattern (e.g. 'new ES assignment' -> 'Submit ES Assignment')
+    match_assign = re.search(r"(?:new\s+)?([a-zA-Z0-9_-]+\s+assignment)", s, re.IGNORECASE)
+    if match_assign:
+        course = match_assign.group(1).title()
+        course = preserve_acronyms(course)
+        if "submit" in s.lower() or "have to" in s.lower() or "need to" in s.lower():
+            return f"Submit {course}"
+        return course
+
+    # Strip trailing date or submission suffixes
+    date_patterns = [
+        r"\s+which\s+i\s+have\s+to\s+submit.*",
+        r"\s+which\s+i\s+need\s+to\s+submit.*",
+        r"\s+by\s+next\s+month\s+on\s+\d+(?:st|nd|rd|th)?\s+of\s+[a-z]+",
+        r"\s+by\s+next\s+month",
+        r"\s+by\s+\d+(?:st|nd|rd|th)?\s+of\s+[a-z]+",
+        r"\s+by\s+1st\s+of\s+oct",
+        r"\s+by\s+october\s+\d+",
+        r"\s+by\s+[a-z]+\s+\d+",
+        r"\s+by\s+tomorrow",
+        r"\s+by\s+tommorow",
+    ]
+    for pattern in date_patterns:
+        s = re.sub(pattern, "", s, flags=re.IGNORECASE).strip()
+
+    prefixes = [
+        "my faculty or teacher gave me new",
+        "my faculty or teacher gave me",
+        "my faculty gave me new",
+        "my faculty gave me",
+        "my teacher gave me new",
+        "my teacher gave me",
+        "my professor gave me new",
+        "my professor gave me",
+        "teacher gave me new",
+        "teacher gave me",
+        "faculty gave me new",
+        "faculty gave me",
+        "professor gave me new",
+        "professor gave me",
+        "gave me new",
+        "gave me",
+        "assigned me new",
+        "assigned me",
+        "also i have to do",
+        "also i have to complete",
+        "also i have to",
+        "also i need to do",
+        "also i need to",
+        "also i want to",
+        "also i will",
+        "also i must",
+        "also i should",
+        "also i have",
+        "also",
+        "and i have to",
+        "and i need to",
+        "and i will",
+        "and",
+        "so i have to",
+        "so i will",
+        "so",
+        "tomorrow i will complete",
+        "tomorrow i will",
+        "i have to complete",
+        "i need to complete",
+        "i have to do",
+        "i need to do",
+        "i want to do",
+        "i have to",
+        "i need to",
+        "i must",
+        "i should",
+        "i will",
+        "i want to",
+        "my goal is to",
+        "my goal is",
+        "plan to",
+        "aim to",
+        "trying to",
+        "going to",
+    ]
+    lower = s.lower()
+    for p in prefixes:
+        if lower.startswith(p):
+            s = s[len(p):].strip()
+            break
+
+    words = s.split()
+    if len(words) > 7:
+        s = " ".join(words[:7])
+
+    cleaned = s.strip()
+    if not cleaned:
+        return "New Goal"
+    res = cleaned[0].upper() + cleaned[1:]
+    return preserve_acronyms(res)
 
 class GeminiService:
     def __init__(self):
@@ -44,6 +218,7 @@ class GeminiService:
             goals_context = f"\nUser's Current Active Goals:\n{goals_list_str}\n"
 
         prompt = f"""You are an expert AI Goal Journal & Accountability Coach analyzing a user's daily journal entry.
+Today's Date: {today_str}
 
 ATTENTION MECHANISM & FOCUS RULES:
 - RULE 1 (BACKSTAGING vs ACTIVE TODAY): Separate historical commitments or background context ("backstaging") from concrete actions executed today. Pay primary attention to what the user actively worked on today.
@@ -52,7 +227,13 @@ ATTENTION MECHANISM & FOCUS RULES:
    - 'ongoing': Tasks currently in progress ("working on presentation").
    - 'planned': Intentions for the future ("will study tomorrow").
    Do NOT mark planned tasks as completed!
-- RULE 3 (QUANTITATIVE & ACCURATE PROGRESS):
+- RULE 3 (AUTOMATIC GOAL DETECTION & DEDUPLICATION):
+   Identify explicit or strong implicit commitments to new medium/long-term objectives, including teacher/faculty assignments ("I want to learn Docker", "Aiming to run 5k", "Planning to launch portfolio", "Faculty gave me new ES assignment to submit by tomorrow").
+   When user mentions faculty/teacher assignments, clean title (e.g. "Submit ES Assignment"), set category to 'Learning', and extract exact target date.
+   If the intention already corresponds to an existing goal from the context below, set "is_new": false and provide "matched_existing_goal_id".
+   Assign a confidence score (0.0 to 1.0) and suggest a category ('Career', 'Learning', 'Health', 'Finance', 'Personal', or 'Other').
+   If target date is mentioned (e.g., "by tomorrow" or "by next month"), calculate the exact target date relative to Today's Date ({today_str}). Ensure the year is 2026 or future.
+- RULE 4 (QUANTITATIVE & ACCURATE PROGRESS):
    When user mentions goal progress, evaluate quantitative units if present (e.g. "3 out of 10 modules done" -> quantified_completed: 3, quantified_total: 10).
    Categorize effort_level as: 'minor' (+5-10%), 'moderate' (+15-20%), 'major' (+25-35%), or 'completion' (goal 100% finished).
 
@@ -74,8 +255,12 @@ Return ONLY a valid JSON object strictly matching this schema:
   ],
   "goals": [
     {{
-      "text": "Goal description",
+      "title": "Concise, actionable goal title (3-7 words)",
+      "description": "Context and rationale extracted from journal",
+      "category": "Career | Learning | Health | Finance | Personal | Other",
       "is_new": true,
+      "confidence": 0.90,
+      "target_date": "YYYY-MM-DD or null",
       "matched_existing_goal_id": null
     }}
   ],
@@ -111,97 +296,185 @@ Return ONLY a valid JSON object strictly matching this schema:
             )
             cleaned = _clean_json_response(response.text)
             parsed = json.loads(cleaned)
-            return parsed
+            return self._normalize_analysis_result(parsed, content)
         except Exception as e:
             logger.error("Gemini analysis error: %s", e)
             return self._rule_based_fallback(content, str(e))
 
+    def _normalize_analysis_result(self, parsed: dict[str, Any], content: str) -> dict[str, Any]:
+        """Normalize JSON response so that goals, goalsExtracted, completedTasks are always present."""
+        goals_raw = parsed.get("goals", [])
+        activities_raw = parsed.get("activities", [])
+
+        # Clean goal titles & calculate confidence integer
+        for g in goals_raw:
+            if "title" in g:
+                g["title"] = clean_title(g["title"])
+            conf = g.get("confidence", 0.90)
+            if isinstance(conf, float) and conf <= 1.0:
+                g["confidence_pct"] = int(conf * 100)
+            else:
+                g["confidence_pct"] = int(conf) if str(conf).isdigit() else 90
+
+        completed_tasks = [
+            a.get("text") for a in activities_raw if a.get("status") == "completed"
+        ]
+
+        goals_extracted = [
+            {
+                "title": clean_title(g.get("title", "")),
+                "confidence": g.get("confidence_pct", 90),
+                "description": g.get("description") or f"Extracted task: {content[:70]}...",
+                "due_date": g.get("target_date"),
+                "category": g.get("category", "Learning"),
+            }
+            for g in goals_raw
+        ]
+
+        parsed["goals"] = goals_raw
+        parsed["goalsExtracted"] = goals_extracted
+        parsed["completedTasks"] = completed_tasks
+        return parsed
+
     def _rule_based_fallback(self, content: str, error_note: str = "") -> dict[str, Any]:
         """
         Smart rule-based extraction fallback for local dev when GEMINI_API_KEY is missing or invalid.
-        Extracts activities, blockers, candidate goals, and quantitative progress metrics.
+        Parses sentences, cleans titles (3-7 words), extracts target due dates, activities, and blockers.
         """
         text_lower = content.lower()
+        sentences = [s.strip() for s in re.split(r"[.!?\n]+", content) if s.strip()]
 
-        # Extract Blockers
-        blockers = []
-        if "cors" in text_lower or "blocker" in text_lower or "delayed" in text_lower or "stuck" in text_lower or "distracted" in text_lower:
-            if "cors" in text_lower:
-                blockers.append({
-                    "text": "Firebase CORS headers configuration issue delaying API calls",
-                    "category": "technical",
-                    "severity": "high"
-                })
-            if "distracted" in text_lower or "notifications" in text_lower:
-                blockers.append({
-                    "text": "Distractions from phone notifications during study session",
-                    "category": "distraction",
-                    "severity": "medium"
-                })
-            if not blockers:
-                blockers.append({
-                    "text": "Operational delay or technical obstacle identified",
-                    "category": "technical",
-                    "severity": "medium"
-                })
+        goal_phrases = [
+            "i have to", "i need to", "i must", "i should",
+            "tomorrow i will", "i will", "my goal is", "i want to", "plan to",
+            "will build", "will create", "complete this by", "finish by", "want to",
+            "faculty", "teacher", "professor", "assignment", "homework", "lab", "dsa", "es"
+        ]
 
-        # Extract Activities
+        complete_phrases = [
+            "completed", "complete", "finished", "done", "submitted",
+            "uploaded", "sent", "resolved", "fixed", "built", "implemented"
+        ]
+
+        blocker_phrases = [
+            "could not", "couldn't", "unable to", "not able to",
+            "failed to", "missed my", "still pending", "pending",
+            "not completed", "blocked", "stuck", "distracted"
+        ]
+
+        candidate_goals = []
         activities = []
-        if "finished" in text_lower or "completed" in text_lower or "resolved" in text_lower:
-            activities.append({
-                "text": content[:90] + ("..." if len(content) > 90 else ""),
-                "status": "completed",
-                "related_goal_hint": "backend" if "api" in text_lower else "study"
-            })
-        else:
+        blockers = []
+        progress_updates = []
+
+        for sentence in sentences:
+            sent_lower = sentence.lower()
+
+            # Percentage / Progress Update check
+            pct_match = re.search(r"(\d+)\s*%", sentence) or re.search(r"(\d+)\s*percent", sentence)
+            is_progress_report = bool(pct_match) or any(k in sent_lower for k in ["% completed", "% done", "percent completed", "progressed", "worked on"])
+
+            if pct_match:
+                pct_val = int(pct_match.group(1))
+                hint_word = "dsa" if "dsa" in sent_lower else ("backend" if "api" in sent_lower else None)
+                progress_updates.append({
+                    "related_goal_hint": hint_word,
+                    "progress_increment": pct_val,
+                    "quantified_completed": pct_val,
+                    "quantified_total": 100,
+                    "effort_level": "completion" if pct_val >= 100 else "moderate",
+                    "evidence_quote": sentence,
+                    "note": sentence,
+                })
+
+            # Goal check (only if sentence is NOT purely a progress percentage report on an existing goal)
+            if not is_progress_report and any(p in sent_lower for p in goal_phrases):
+                goal_title = clean_title(sentence)
+                due_date_str = parse_due_date_from_text(sentence) or parse_due_date_from_text(content)
+                learning_keywords = ["faculty", "teacher", "professor", "assignment", "homework", "dsa", "es", "study", "learn", "read", "course", "exam", "test", "lab"]
+                cat = "Learning" if any(k in sent_lower for k in learning_keywords) else "Personal"
+
+                if not any(g.get("title") == goal_title for g in candidate_goals):
+                    candidate_goals.append({
+                        "title": goal_title,
+                        "text": goal_title,
+                        "confidence": 0.90,
+                        "confidence_pct": 90,
+                        "description": sentence,
+                        "category": cat,
+                        "target_date": due_date_str,
+                        "is_new": True,
+                    })
+
+            # Completed tasks check
+            if pct_match or any(p in sent_lower for p in complete_phrases):
+                activities.append({
+                    "text": sentence.strip(),
+                    "status": "completed",
+                    "related_goal_hint": "dsa" if "dsa" in sent_lower else None,
+                })
+
+            # Blocker check
+            if any(p in sent_lower for p in blocker_phrases):
+                blockers.append({
+                    "text": sentence,
+                    "category": "distraction" if "distract" in sent_lower else "technical",
+                    "severity": "medium",
+                })
+
+        # Default fallback activity if none recorded
+        if not activities:
             activities.append({
                 "text": content[:90] + ("..." if len(content) > 90 else ""),
                 "status": "ongoing",
-                "related_goal_hint": None
+                "related_goal_hint": None,
             })
 
-        # Extract Candidate Goals
-        candidate_goals = []
-        if "new goal" in text_lower or "plan to" in text_lower or "want to" in text_lower or "test suite" in text_lower:
+        # Default fallback goal if none found yet and NOT a progress report
+        if not candidate_goals and not progress_updates and content.strip():
+            goal_title = clean_title(content)
+            due_date_str = parse_due_date_from_text(content)
+            learning_keywords = ["faculty", "teacher", "professor", "assignment", "homework", "dsa", "es", "study", "learn", "read", "course", "exam", "test", "lab"]
+            cat = "Learning" if any(k in text_lower for k in learning_keywords) else "Personal"
             candidate_goals.append({
-                "text": "Complete full integration test suite by next Friday",
-                "suggested_category": "Career / Engineering"
+                "title": goal_title,
+                "text": goal_title,
+                "confidence": 0.85,
+                "confidence_pct": 85,
+                "description": content,
+                "category": cat,
+                "target_date": due_date_str,
+                "is_new": True,
             })
 
-        # Progress Updates
-        progress_updates = []
-        if "3 out of 5" in text_lower or "3/5" in text_lower:
-            progress_updates.append({
-                "related_goal_hint": "fastapi",
-                "quantified_completed": 3,
-                "quantified_total": 5,
-                "effort_level": "moderate"
-            })
-        elif "2 chapters" in text_lower or "2 out of 8" in text_lower or "2/8" in text_lower:
-            progress_updates.append({
-                "related_goal_hint": "operating",
-                "quantified_completed": 2,
-                "quantified_total": 8,
-                "effort_level": "minor"
-            })
-        elif "100%" in text_lower or "all remaining" in text_lower or "finalized" in text_lower:
-            progress_updates.append({
-                "related_goal_hint": "fastapi",
-                "quantified_completed": 5,
-                "quantified_total": 5,
-                "effort_level": "completion"
-            })
+        completed_tasks = [a["text"] for a in activities if a.get("status") == "completed"]
+        if not completed_tasks:
+            completed_tasks = [clean_title(content)] if any(p in text_lower for p in ["finished", "completed", "done", "submitted", "uploaded", "resolved", "built"]) else []
+
+        goals_extracted = [
+            {
+                "title": g["title"],
+                "confidence": g.get("confidence_pct", 90),
+                "description": g.get("description", content),
+                "due_date": g.get("target_date"),
+            }
+            for g in candidate_goals
+        ]
 
         return {
-            "title": content[:40] + ("..." if len(content) > 40 else ""),
-            "mood": "focused" if "productive" in text_lower or "excellent" in text_lower else "neutral",
-            "mood_confidence": 0.85,
+            "status": "success",
+            "title": clean_title(content),
+            "summary": f"MindFlow analyzed your entry. Extracted {len(candidate_goals)} goal(s) and {len(completed_tasks)} completed task(s).",
+            "quick_summary": content[:130],
+            "mood": "positive" if "productive" in text_lower or "excellent" in text_lower or "completed" in text_lower else "neutral",
+            "mood_confidence": 0.88,
             "activities": activities,
+            "completedTasks": completed_tasks,
             "goals": candidate_goals,
+            "goalsExtracted": goals_extracted,
             "blockers": blockers,
             "progress_updates": progress_updates,
             "insights": ["Reflection processed. AI extracted activities, blockers, and goal hints."],
-            "quick_summary": content[:130],
             "error_note": error_note,
         }
 

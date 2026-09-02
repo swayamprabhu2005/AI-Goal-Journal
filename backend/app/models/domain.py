@@ -21,6 +21,7 @@ class Goal:
     description: Optional[str] = None
     category: Optional[str] = None
     status: str = "Active"  # Active | Completed | Stalled
+    priority: Optional[str] = "Medium Priority"  # High Priority | Medium Priority | Low Priority
     target_date: Optional[str] = None
     progress_value: int = 0
     latest_progress_note: Optional[str] = None
@@ -65,3 +66,22 @@ class WeeklySummary:
     mood_trend: str = "stable"  # improving | stable | declining
     coaching_suggestion: str = ""
     created_at: datetime = field(default_factory=datetime.utcnow)
+
+@dataclass
+class Habit:
+    id: str
+    user_id: str
+    name: str
+    description: Optional[str] = None
+    frequency: str = "daily"
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class HabitLog:
+    id: str
+    habit_id: str
+    completed_date: datetime
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    

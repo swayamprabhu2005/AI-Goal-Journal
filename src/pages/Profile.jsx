@@ -50,57 +50,45 @@ export default function Profile() {
   }
 
   return (
-    <div className="app-page">
-      <header className="border-b border-border bg-surface px-5 py-7 md:px-8 lg:px-10">
-        <div className="mx-auto max-w-[1000px]">
-          <p className="section-label">ACCOUNT</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-cream">
-            User Profile
-          </h1>
-          <p className="mt-2 text-sm text-beige/60">
-            Manage your account details and review your productivity statistics.
-          </p>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-[1000px] px-5 py-7 md:px-8 lg:px-10">
+    <div className="app-page bg-slate-50 min-h-screen">
+      <main className="mx-auto max-w-[1000px] px-5 py-7 md:px-8 lg:px-10 animate-rise">
         {statusMessage && (
-          <div role="status" className="mb-6 rounded-xl border border-green-900/40 bg-green-950/20 px-4 py-3 text-xs text-green-400">
+          <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-600 font-semibold">
             ✓ {statusMessage}
           </div>
         )}
 
         {errorMessage && (
-          <div role="alert" className="mb-6 rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-3 text-xs text-red-400">
+          <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
             <strong>Notice: </strong> {errorMessage}
           </div>
         )}
 
         {loading ? (
-          <section className="panel px-6 py-20 text-center shadow-card">
-            <p className="text-sm text-beige/55">Loading profile…</p>
+          <section className="panel px-6 py-20 text-center shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Loading profile…</p>
           </section>
         ) : (
           <div className="flex flex-col gap-6">
             {/* Identity & Stats Header Card */}
-            <section className="panel p-6 shadow-card">
+            <section className="panel p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-burgundy text-2xl text-cream border border-border">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-2xl text-white shadow-sm">
                     <User size={30} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-cream">
+                    <h2 className="text-xl font-bold text-slate-900">
                       {profile?.display_name || displayName || user?.displayName || user?.email?.split("@")[0] || "Goal Journal User"}
                     </h2>
-                    <p className="text-xs text-beige/60 mt-0.5">
+                    <p className="text-xs text-slate-500 font-semibold mt-0.5">
                       {profile?.profession || profession || "Productivity Enthusiast"}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-lg bg-surface2 px-3 py-1 font-mono text-beige/80 border border-border text-[11px]">
+                      <span className="rounded-lg bg-slate-100 px-3 py-1 font-mono text-slate-700 border border-slate-200 text-[11px] font-medium">
                         {profile?.email || user?.email}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-950/40 px-3 py-0.5 text-[10px] font-bold text-green-400 border border-green-900/40">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-0.5 text-[10px] font-bold text-emerald-600 border border-emerald-200">
                         <ShieldCheck size={12} /> Firebase Verified
                       </span>
                     </div>
@@ -109,40 +97,40 @@ export default function Profile() {
               </div>
 
               {/* Quick Metrics Bar */}
-              <div className="mt-6 pt-5 border-t border-border grid grid-cols-3 gap-3 text-center">
-                <div className="bg-surface2 p-3.5 rounded-xl border border-border">
-                  <div className="text-2xl font-bold text-cream">{profile?.stats?.total_journals ?? 0}</div>
-                  <div className="text-[10px] text-beige/50 uppercase tracking-wider font-bold mt-0.5">Journals</div>
+              <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-3 gap-3 text-center">
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <div className="text-2xl font-bold text-slate-900">{profile?.stats?.total_journals ?? 0}</div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">Journals</div>
                 </div>
-                <div className="bg-surface2 p-3.5 rounded-xl border border-border">
-                  <div className="text-2xl font-bold text-cream">{profile?.stats?.active_goals ?? 0}</div>
-                  <div className="text-[10px] text-beige/50 uppercase tracking-wider font-bold mt-0.5">Active Goals</div>
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <div className="text-2xl font-bold text-slate-900">{profile?.stats?.active_goals ?? 0}</div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">Active Goals</div>
                 </div>
-                <div className="bg-surface2 p-3.5 rounded-xl border border-border">
-                  <div className="text-2xl font-bold text-green-400">{profile?.stats?.completed_goals ?? 0}</div>
-                  <div className="text-[10px] text-beige/50 uppercase tracking-wider font-bold mt-0.5">Completed</div>
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <div className="text-2xl font-bold text-emerald-600">{profile?.stats?.completed_goals ?? 0}</div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">Completed</div>
                 </div>
               </div>
             </section>
 
             {/* Edit Profile Form */}
-            <section className="panel p-6 shadow-card">
-              <h2 className="text-base font-bold text-cream mb-4 border-b border-border pb-3">
+            <section className="panel p-6 shadow-sm">
+              <h2 className="text-base font-bold text-slate-900 mb-4 border-b border-slate-100 pb-3">
                 Account Details
               </h2>
 
               <form onSubmit={handleSave} className="flex flex-col gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-beige/70 block mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                     Email Address (Authoritative)
                   </label>
                   <input
                     type="email"
                     value={profile?.email || user?.email || ""}
                     disabled
-                    className="input-dark px-3.5 py-2.5 text-sm text-beige/50 cursor-not-allowed font-mono opacity-60"
+                    className="input-field px-3.5 py-2.5 text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl cursor-not-allowed font-mono opacity-75"
                   />
-                  <span className="text-[11px] text-beige/40 mt-1 block">
+                  <span className="text-[11px] text-slate-500 mt-1 block font-medium">
                     Identity is derived securely from Firebase Authentication.
                   </span>
                 </div>
@@ -163,7 +151,7 @@ export default function Profile() {
                   onChange={(e) => setProfession(e.target.value)}
                 />
 
-                <div className="flex justify-end pt-3 border-t border-border">
+                <div className="flex justify-end pt-3 border-t border-slate-100">
                   <button type="submit" disabled={saving} className="primary-button text-xs">
                     {saving ? "Saving…" : "Save Profile Changes"}
                   </button>

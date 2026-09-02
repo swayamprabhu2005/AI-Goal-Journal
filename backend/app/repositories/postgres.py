@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from app.database.connection import SessionLocal
@@ -8,6 +8,8 @@ from app.database.orm_models import (
     GoalORM,
     ProgressORM,
     AISummaryORM,
+    HabitORM,
+    HabitLogORM,
 )
 from app.models.domain import (
     User,
@@ -15,6 +17,8 @@ from app.models.domain import (
     Goal,
     Progress,
     WeeklySummary,
+    Habit,
+    HabitLog,
 )
 from app.repositories.base import (
     AbstractUserRepository,
@@ -22,6 +26,7 @@ from app.repositories.base import (
     AbstractGoalRepository,
     AbstractProgressRepository,
     AbstractSummaryRepository,
+    AbstractHabitRepository,
 )
 
 class PostgresUserRepository(AbstractUserRepository):
@@ -1070,9 +1075,408 @@ class PostgresSummaryRepository(AbstractSummaryRepository):
             )
 
         finally:
-            db.close()            
+            db.close()    
+
+class PostgresHabitRepository(AbstractHabitRepository):
+
+    def _get_internal_user_id(
+        self,
+        db,
+        firebase_uid: str
+    ) -> Optional[int]:
+
+        user = (
+            db.query(UserORM)
+            .filter(UserORM.firebase_uid == firebase_uid)
+            .first()
+        )
+
+        return user.id if user else None
+
+    def _to_domain(
+        self,
+        row: HabitORM,
+        firebase_uid: str
+    ) -> Habit:
+
+        return Habit(
+            id=str(row.id),
+            user_id=firebase_uid,
+            name=row.name,
+            description=row.description,
+            frequency=row.frequency,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    def _log_to_domain(
+        self,
+        row: HabitLogORM
+    ) -> HabitLog:
+
+        return HabitLog(
+            id=str(row.id),
+            habit_id=str(row.habit_id),
+            completed_date=row.completed_date,
+            created_at=row.created_at,
+        )
+
+    def _get_owned_habit(
+        self,
+        db,
+        user_id: str,
+        habit_id: str
+    ) -> Optional[HabitORM]:
+
+        internal_user_id = self._get_internal_user_id(
+            db,
+            user_id
+        )
+
+        if internal_user_id is None:
+            return None
+
+        try:
+            db_habit_id = int(habit_id)
+        except ValueError:
+            return None
+
+        return (
+            db.query(HabitORM)
+            .filter(
+                HabitORM.id == db_habit_id,
+                HabitORM.user_id == internal_user_id
+            )
+            .first()
+        )
+
+    def create(
+        self,
+        habit: Habit
+    ) -> Habit:
+
+        db = SessionLocal()
+
+        try:
+            internal_user_id = self._get_internal_user_id(
+                db,
+                habit.user_id
+            )
+
+            if internal_user_id is None:
+                raise LookupError(
+                    "Authenticated user does not exist in PostgreSQL"
+                )
+
+            row = HabitORM(
+                user_id=internal_user_id,
+                name=habit.name,
+                description=habit.description,
+                frequency=habit.frequency,
+                created_at=habit.created_at,
+                updated_at=habit.updated_at,
+            )
+
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+
+            return self._to_domain(
+                row,
+                habit.user_id
+            )
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            db.close()
+
+    def get_by_id(
+        self,
+        user_id: str,
+        habit_id: str
+    ) -> Optional[Habit]:
+
+        db = SessionLocal()
+
+        try:
+            row = self._get_owned_habit(
+                db,
+                user_id,
+                habit_id
+            )
+
+            if not row:
+                return None
+
+            return self._to_domain(row, user_id)
+
+        finally:
+            db.close()
+
+    def get_all_by_user(
+        self,
+        user_id: str
+    ) -> list[Habit]:
+
+        db = SessionLocal()
+
+        try:
+            internal_user_id = self._get_internal_user_id(
+                db,
+                user_id
+            )
+
+            if internal_user_id is None:
+                return []
+
+            rows = (
+                db.query(HabitORM)
+                .filter(
+                    HabitORM.user_id == internal_user_id
+                )
+                .order_by(
+                    HabitORM.created_at.desc()
+                )
+                .all()
+            )
+
+            return [
+                self._to_domain(row, user_id)
+                for row in rows
+            ]
+
+        finally:
+            db.close()
+
+    def update(
+        self,
+        user_id: str,
+        habit_id: str,
+        **kwargs
+    ) -> Optional[Habit]:
+
+        db = SessionLocal()
+
+        try:
+            row = self._get_owned_habit(
+                db,
+                user_id,
+                habit_id
+            )
+
+            if not row:
+                return None
+
+            allowed_fields = {
+                "name",
+                "description",
+                "frequency",
+            }
+
+            for key, value in kwargs.items():
+                if key in allowed_fields and value is not None:
+                    setattr(row, key, value)
+
+            row.updated_at = datetime.utcnow()
+
+            db.commit()
+            db.refresh(row)
+
+            return self._to_domain(row, user_id)
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            db.close()
+
+    def delete(
+        self,
+        user_id: str,
+        habit_id: str
+    ) -> bool:
+
+        db = SessionLocal()
+
+        try:
+            row = self._get_owned_habit(
+                db,
+                user_id,
+                habit_id
+            )
+
+            if not row:
+                return False
+
+            db.delete(row)
+            db.commit()
+
+            return True
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            db.close()
+
+    def add_log(
+        self,
+        user_id: str,
+        habit_id: str,
+        completed_date: datetime
+    ) -> Optional[HabitLog]:
+
+        db = SessionLocal()
+
+        try:
+            habit = self._get_owned_habit(
+                db,
+                user_id,
+                habit_id
+            )
+
+            if not habit:
+                return None
+
+            day_start = completed_date.replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0
+            )
+
+            day_end = day_start + timedelta(days=1)
+
+            existing = (
+                db.query(HabitLogORM)
+                .filter(
+                    HabitLogORM.habit_id == habit.id,
+                    HabitLogORM.completed_date >= day_start,
+                    HabitLogORM.completed_date < day_end
+                )
+                .first()
+            )
+
+            if existing:
+                return self._log_to_domain(existing)
+
+            row = HabitLogORM(
+                habit_id=habit.id,
+                completed_date=completed_date,
+                created_at=datetime.utcnow(),
+            )
+
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+
+            return self._log_to_domain(row)
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            db.close()
+
+    def remove_log(
+        self,
+        user_id: str,
+        habit_id: str,
+        completed_date: datetime
+    ) -> bool:
+
+        db = SessionLocal()
+
+        try:
+            habit = self._get_owned_habit(
+                db,
+                user_id,
+                habit_id
+            )
+
+            if not habit:
+                return False
+
+            day_start = completed_date.replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0
+            )
+
+            day_end = day_start + timedelta(days=1)
+
+            row = (
+                db.query(HabitLogORM)
+                .filter(
+                    HabitLogORM.habit_id == habit.id,
+                    HabitLogORM.completed_date >= day_start,
+                    HabitLogORM.completed_date < day_end
+                )
+                .first()
+            )
+
+            if not row:
+                return False
+
+            db.delete(row)
+            db.commit()
+
+            return True
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            db.close()
+
+    def get_logs(
+        self,
+        user_id: str,
+        habit_id: str
+    ) -> list[HabitLog]:
+
+        db = SessionLocal()
+
+        try:
+            habit = self._get_owned_habit(
+                db,
+                user_id,
+                habit_id
+            )
+
+            if not habit:
+                return []
+
+            rows = (
+                db.query(HabitLogORM)
+                .filter(
+                    HabitLogORM.habit_id == habit.id
+                )
+                .order_by(
+                    HabitLogORM.completed_date.desc()
+                )
+                .all()
+            )
+
+            return [
+                self._log_to_domain(row)
+                for row in rows
+            ]
+
+        finally:
+            db.close()
+                    
 user_repo = PostgresUserRepository()
 journal_repo = PostgresJournalRepository()
 goal_repo = PostgresGoalRepository()
 progress_repo = PostgresProgressRepository()
 summary_repo = PostgresSummaryRepository()
+habit_repo = PostgresHabitRepository()

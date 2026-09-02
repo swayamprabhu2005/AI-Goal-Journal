@@ -4,6 +4,8 @@ from app.core.auth import get_current_user, AuthenticatedUser
 from app.schemas.progress import (
     ProgressCreate,
     ProgressResponse,
+    ProgressTrendResponse,
+    ProgressHistoryItem,
 )
 from app.services.progress_service import progress_service
 
@@ -15,9 +17,15 @@ router = APIRouter(
 
 
 @router.post(
+    "",
+    response_model=ProgressResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@router.post(
     "/",
     response_model=ProgressResponse,
     status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
 )
 def create_progress(
     data: ProgressCreate,
@@ -56,6 +64,26 @@ def get_progress_history(
         user_id=current_user.uid,
         goal_id=goal_id,
     )
+
+
+@router.get(
+    "/goal/{goal_id}/trend",
+    response_model=ProgressTrendResponse,
+)
+def get_progress_trend(
+    goal_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    try:
+        return progress_service.get_progress_trend(
+            user_id=current_user.uid,
+            goal_id=goal_id,
+        )
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Goal not found",
+        )
 
 
 @router.get(

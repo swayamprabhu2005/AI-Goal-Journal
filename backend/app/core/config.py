@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     WHISPER_DEVICE: str = "cpu"
     WHISPER_COMPUTE_TYPE: str = "int8"
 
+    # Encryption (AES-256-GCM)
+    ENCRYPTION_KEY: str = ""
+    ENCRYPTION_OLD_KEYS: str = ""  # Comma-separated list of previous keys for seamless rotation
+
     # API / Server
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "AI Goal Journal & Accountability Coach"

@@ -9,6 +9,7 @@ from app.services.progress_service import progress_service
 router = APIRouter(prefix="/goals", tags=["Goals"])
 
 @router.get("", response_model=list[GoalResponse])
+@router.get("/", response_model=list[GoalResponse], include_in_schema=False)
 def list_goals(
     status: Optional[str] = Query(None, description="Filter goals by status: Active, Completed, Stalled"),
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -17,6 +18,7 @@ def list_goals(
     return goal_service.list_goals(user_id=current_user.uid, status=status)
 
 @router.post("", response_model=GoalResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=GoalResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_goal(
     data: GoalCreate,
     current_user: AuthenticatedUser = Depends(get_current_user),

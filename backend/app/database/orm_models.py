@@ -207,3 +207,64 @@ class AISummaryORM(Base):
         DateTime,
         default=datetime.utcnow
     )
+
+
+class HabitORM(Base):
+    __tablename__ = "habits"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    name = Column(
+        String,
+        nullable=False
+    )
+
+    description = Column(
+        Text,
+        nullable=True
+    )
+
+    frequency = Column(
+        String,
+        nullable=False,
+        default="daily"
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+
+class HabitLogORM(Base):
+    __tablename__ = "habit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    habit_id = Column(
+        Integer,
+        ForeignKey("habits.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    completed_date = Column(
+        DateTime,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )

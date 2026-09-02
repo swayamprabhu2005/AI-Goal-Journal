@@ -7,29 +7,23 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Progress from "./pages/progress";
 import Goals from "./pages/Goals";
+import Calendar from "./pages/Calendar";
 import Journal from "./pages/Journal";
 import AiCoach from "./pages/AiCoach";
 import Insights from "./pages/Insights";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import Habits from "./pages/Habits";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { useAuth } from "./context/AuthContext";
+import { FullscreenLoadingScreen } from "./components/LoadingSkeleton";
 
 function RootIndexRoute() {
   const { user, checkingAuth } = useAuth();
 
   if (checkingAuth) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-cream">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-burgundy border-t-cream" />
-          <p className="text-xs font-semibold uppercase tracking-wider text-beige/70">
-            Loading Goal Journal...
-          </p>
-        </div>
-      </div>
-    );
+    return <FullscreenLoadingScreen />;
   }
 
   if (user) {
@@ -72,8 +66,10 @@ export default function App() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/progress" element={<Progress />} />
         <Route path="/goals" element={<Goals />} />
+        <Route path="/habits" element={<Habits />} />
         <Route path="/journal" element={<Journal />} />
         <Route path="/coach" element={<AiCoach />} />
         <Route path="/insights" element={<Insights />} />

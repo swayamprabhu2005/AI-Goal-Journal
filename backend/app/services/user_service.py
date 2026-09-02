@@ -1,7 +1,7 @@
 from typing import Optional, Any
 from app.models.domain import User
 from app.schemas.user import UserProfileResponse, UserStats, UserProfileUpdate
-from app.repositories.postgres import user_repo, journal_repo, goal_repo
+from app.repositories.in_memory import user_repo, journal_repo, goal_repo
 
 
 class UserService:

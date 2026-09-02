@@ -8,11 +8,13 @@ from app.services.whisper_service import whisper_service
 router = APIRouter(prefix="/journals", tags=["Journals"])
 
 @router.get("", response_model=list[JournalResponse])
+@router.get("/", response_model=list[JournalResponse], include_in_schema=False)
 def list_journals(current_user: AuthenticatedUser = Depends(get_current_user)):
     """List all journals for the authenticated user (newest first)."""
     return journal_service.list_journals(user_id=current_user.uid)
 
 @router.post("", response_model=JournalResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=JournalResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_journal(
     data: JournalCreate,
     current_user: AuthenticatedUser = Depends(get_current_user),

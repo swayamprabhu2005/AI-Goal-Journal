@@ -1,31 +1,19 @@
 import { auth } from '../firebase';
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  (typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:8000/api/v1'
-    : 'http://127.0.0.1:8000/api/v1');
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
 /**
  * Retrieves the current Firebase user's ID token and formats Authorization header.
  */
 export async function getAuthHeaders() {
   const currentUser = auth.currentUser;
-  if (currentUser) {
-    const token = await currentUser.getIdToken();
-    return {
-      Authorization: `Bearer ${token}`,
-    };
+  if (!currentUser) {
+    return {};
   }
-
-  const savedDevUser = localStorage.getItem('local_dev_user');
-  if (savedDevUser) {
-    return {
-      Authorization: `Bearer mock-dev-token-123`,
-    };
-  }
-
-  return {};
+  const token = await currentUser.getIdToken();
+  return {
+    Authorization: `Bearer ${token}`,
+  };
 }
 
 /**
@@ -67,7 +55,6 @@ export async function fetchWithAuth(url, options = {}) {
  */
 export const userApi = {
   getProfile: () => fetchWithAuth('/users/me'),
-  getProductivityScore: () => fetchWithAuth('/users/me/productivity-score'),
   updateProfile: (data) =>
     fetchWithAuth('/users/me', {
       method: 'PUT',
@@ -171,19 +158,75 @@ export const summaryApi = {
 };
 
 /**
- * Progress Tracking API
+ * Goal Progress API
  */
 export const progressApi = {
-  getHistory: (goalId) =>
-    fetchWithAuth(`/progress/goal/${goalId}`),
-
-  getLatest: (goalId) =>
-    fetchWithAuth(`/progress/goal/${goalId}/latest`),
-
   createProgress: (data) =>
-    fetchWithAuth('/progress/', {
+    fetchWithAuth('/progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
+  getGoalProgress: (goalId) => fetchWithAuth(`/progress/goal/${goalId}`),
+  getProgressHistory: (goalId) => fetchWithAuth(`/progress/goal/${goalId}`),
+  getProgressTrend: (goalId) => fetchWithAuth(`/progress/goal/${goalId}/trend`),
+  getLatestGoalProgress: (goalId) => fetchWithAuth(`/progress/goal/${goalId}/latest`),
+  getLatestProgress: (goalId) => fetchWithAuth(`/progress/goal/${goalId}/latest`),
+};
+
+/**
+ * Habit Tracker API
+ */
+export const habitApi = {
+  listHabits: () =>
+    fetchWithAuth('/habits'),
+
+  getHabit: (id) =>
+    fetchWithAuth(`/habits/${id}`),
+
+  createHabit: (data) =>
+    fetchWithAuth('/habits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  updateHabit: (id, data) =>
+    fetchWithAuth(`/habits/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  deleteHabit: (id) =>
+    fetchWithAuth(`/habits/${id}`, {
+      method: 'DELETE',
+    }),
+
+  completeHabit: (id, completedDate) => {
+    const query = completedDate ? `?completed_date=${encodeURIComponent(completedDate)}` : '';
+    return fetchWithAuth(`/habits/${id}/complete${query}`, {
+      method: 'POST',
+    });
+  },
+
+  uncompleteHabit: (id, completedDate) => {
+    const query = completedDate ? `?completed_date=${encodeURIComponent(completedDate)}` : '';
+    return fetchWithAuth(`/habits/${id}/complete${query}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getHabitLogs: (id) =>
+    fetchWithAuth(`/habits/${id}/logs`),
+
+  getHabitStatus: (id) =>
+    fetchWithAuth(`/habits/${id}/status`),
+};
+
+/**
+ * Productivity Score API
+ */
+export const productivityApi = {
+  getProductivityScore: () => fetchWithAuth('/productivity-score'),
 };
