@@ -16,6 +16,7 @@ async def lifespan(app: FastAPI):
     from app.services.whisper_service import whisper_service
     threading.Thread(target=whisper_service.preload, daemon=True).start()
     yield
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Backend API for AI Goal Journal & Accountability Coach",

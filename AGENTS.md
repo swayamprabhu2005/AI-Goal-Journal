@@ -64,9 +64,12 @@
 | **AI Journal & In-Place Analysis** | **Complete** | `gemini-3.1-flash-lite` structured extraction; in-place result transition + auto-scroll; renamed to AI Journal. |
 | **Goals Management & Prioritization** | **Complete** | CRUD endpoints, deterministic goal matching, smart priority, auto-sync 100% progress on completion. |
 | **Historical Progress & Trend API** | **Complete** | Chronological ordering, deltas (`change_from_previous`), trend direction (`improving`), completed badges. |
+| **Progress Analytics Dashboard** | **Complete** | Real-time SVG TrendChart component (`components/TrendChart.jsx`), progress gained, streak analytics integrated into Dashboard. |
+| **Data Migration Service** | **Complete** | Safe batch migration from legacy plaintext to AES-256-GCM (`app/services/migration_service.py`, `scripts/migrate_existing_data.py`). |
 | **Habits Tracker & Streaks** | **Complete** | In-memory persistence, Monday–Sunday sequence, ordinal dates (`21st`), week navigation (`<`, `>`), optimistic check-offs. |
 | **Field Encryption & Key Rotation** | **Complete** | AES-256-GCM envelope encryption, backward compatibility, `KeyRotationManager`. |
 | **Productivity Score API (0–100)** | **Complete** | Multi-factor deterministic formula mounted at `/api/v1/productivity-score`. |
+| **Cost & Deployment Documentation** | **Complete** | Dedicated API token model (`docs/COST_ANALYSIS.md`) and deployment/hosting architecture (`docs/deployment_costs.md`). |
 | **Brand Identity & Navigation** | **Complete** | Custom quill & AI chip logo (`public/logo.png`), responsive sidebar spacing, calendar padding. |
 | **PostgreSQL & Docker** | **DEFERRED** | ORM models prepared for future cloud phase; zero runtime requirement for local MVP. |
 
@@ -86,6 +89,12 @@
 
 Before modifying any file in a subtree, agents MUST read the corresponding `AGENTS.md`:
 
+- **Documentation Suite (`docs/`)**:
+  - [`docs/COST_ANALYSIS.md`](file:///docs/COST_ANALYSIS.md) — Token mathematical models, local hardware consumption, faster-whisper savings, and API guardrails.
+  - [`docs/deployment_costs.md`](file:///docs/deployment_costs.md) — Hosting platforms (Vercel, Render, VPS), Docker containerization, scaling tiers, and manual deployment instructions.
+  - [`docs/KEY_ROTATION_STRATEGY.md`](file:///docs/KEY_ROTATION_STRATEGY.md) — Dual-key crypto rotation lifecycle and zero-downtime re-encryption.
+  - [`docs/PRODUCTIVITY_SCORE_SPEC.md`](file:///docs/PRODUCTIVITY_SCORE_SPEC.md) — Mathematical specification of the deterministic 0–100 productivity score.
+  - [`docs/ENCRYPTION_PRIVACY_RESEARCH.md`](file:///docs/ENCRYPTION_PRIVACY_RESEARCH.md) — AES-256-GCM envelope encryption architecture.
 - **Frontend Subtrees**:
   - [`src/AGENTS.md`](file:///src/AGENTS.md) — Frontend overview, styling tokens, React standards, pages, and components.
   - [`src/components/AGENTS.md`](file:///src/components/AGENTS.md) — Reusable UI component contracts and accessibility standards.
@@ -100,4 +109,4 @@ Before modifying any file in a subtree, agents MUST read the corresponding `AGEN
   - [`backend/app/models/AGENTS.md`](file:///backend/app/models/AGENTS.md) — Internal domain entity representations.
   - [`backend/app/repositories/AGENTS.md`](file:///backend/app/repositories/AGENTS.md) — In-memory persistence contracts and migration boundary.
   - [`backend/app/schemas/AGENTS.md`](file:///backend/app/schemas/AGENTS.md) — Pydantic validation schemas.
-  - [`backend/app/services/AGENTS.md`](file:///backend/app/services/AGENTS.md) — Business services (Whisper, Gemini, Goals, Journals, Progress, Productivity, Coach).
+  - [`backend/app/services/AGENTS.md`](file:///backend/app/services/AGENTS.md) — Business services (Whisper, Gemini, Goals, Journals, Progress, Productivity, Coach, Migration).

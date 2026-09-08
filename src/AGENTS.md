@@ -12,7 +12,7 @@ The `src/` directory contains the complete Single Page Application (SPA) built w
 - **Client-Side Routing**: React Router DOM v6 managing public routes, guest landing page, and authenticated protected routes.
 - **Application Views**:
   - `LandingPage.jsx` (`/`): Public showcase featuring hero, interactive preview, feature pillars, and call-to-actions.
-  - `Dashboard.jsx` (`/dashboard`): Momentum overview, active goals with priority badges, and deterministic Productivity Score modal.
+  - `Dashboard.jsx` (`/dashboard`): Momentum overview, active goals with priority badges, deterministic Productivity Score modal, and embedded real-time Progress Trend chart with summary analytics cards.
   - `Journal.jsx` (`/journal`): AI Journal dual text and voice reflection recording with local Whisper STT, Gemini semantic analysis, in-place result transition, and auto-scroll.
   - `Goals.jsx` (`/goals`): Goal management, Smart Priority badges (`High`, `Medium`, `Low`), estimated completion days, filter pills, and Canvas Confetti celebration.
   - `Calendar.jsx` (`/calendar`): Interactive monthly calendar matrix, date inspector, and deadline timeline with spacious layout padding.
@@ -58,6 +58,7 @@ The `src/` directory contains the complete Single Page Application (SPA) built w
 - `animations/` — Anime.js motion helpers (`motion.js`).
 - `assets/` — Static application branding (`logo.png`).
 - `components/` — Reusable UI components:
+  - `TrendChart.jsx` — Reusable pure SVG vector trend chart rendering chronological progression, gradient area fills, tooltips, and empty states.
   - `Sidebar.jsx` — Desktop and mobile navigation shell with brand logo.
   - `PublicNavbar.jsx` / `PublicFooter.jsx` — Public landing page headers and footers with brand logo.
   - `GoalCelebration.jsx` — Canvas Confetti completion celebration.

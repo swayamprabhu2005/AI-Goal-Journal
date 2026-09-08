@@ -13,6 +13,11 @@ Provide reusable, accessible, unstyled-by-default or token-styled UI components 
 
 ## 2. Component Contracts
 
+- **`TrendChart.jsx`**:
+  - Reusable pure SVG vector trend chart for historical progress data.
+  - Accepts `history` array (with `progress_percentage`, `created_at`, `notes`, `change_from_previous`), `height`, `showDots`, and `lineColor`.
+  - Calculates responsive coordinate scaling (`viewBox="0 0 100 100"` with `preserveAspectRatio="none"`), smooth gradient area fills, and interactive data point inspection.
+  - Renders graceful empty state when fewer than 2 progress checkpoints are recorded.
 - **`VoiceRecorder.jsx`**:
   - Encapsulates `navigator.mediaDevices.getUserMedia` and `MediaRecorder`.
   - Must support lifecycle: `idle` $\rightarrow$ `recording` $\rightarrow$ `recorded` $\rightarrow$ `transcribing` $\rightarrow$ `editable_transcript`.

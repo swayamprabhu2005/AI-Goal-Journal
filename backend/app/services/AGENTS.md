@@ -16,6 +16,16 @@
   - Weekly summary synthesis from in-memory records.
 - **`goal_service.py`**:
   - Deterministic goal matching against user's active goals to prevent duplicate goals.
+  - Priority calculation (`High Priority`, `Medium Priority`, `Low Priority`) based on completion percentage, days remaining, and estimated days.
+  - Auto-synchronizes progress to 100% when goal is marked completed.
+- **`progress_service.py`**:
+  - Records incremental progress checkpoints with validated timestamps and ownership.
+  - Calculates chronological history, step deltas (`change_from_previous`), trend direction (`Improving`, `Stagnant`, `Declining`), and average progress gain.
+- **`productivity_service.py`**:
+  - Computes multi-factor deterministic productivity score (0–100) combining goal completion, habit consistency, weekly progress velocity, and active blocker penalties.
+- **`migration_service.py`**:
+  - Safe, idempotent batch migration service scanning plaintext entries and converting them to AES-256-GCM ciphertext (`enc:v1:`).
+  - Dry-run capability, error isolation, and detailed migration reporting.
 - **`journal_service.py`**:
   - Orchestrates journal lifecycle: saving text $\rightarrow$ calling Gemini analysis $\rightarrow$ matching goals $\rightarrow$ persisting structured items.
 - **`summary_service.py`**:

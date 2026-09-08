@@ -4,7 +4,7 @@ from typing import Optional
 
 from app.models.domain import Progress
 from app.schemas.progress import ProgressCreate
-from app.repositories.in_memory import progress_repo, goal_repo
+from app.repositories.postgres import progress_repo, goal_repo
 
 
 logger = logging.getLogger(__name__)

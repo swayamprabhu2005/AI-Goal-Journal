@@ -4,9 +4,9 @@ export function FullscreenLoadingScreen() {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 p-6 text-slate-900 font-sans animate-fade-in">
       <div className="panel p-9 shadow-lg bg-white border border-slate-200 rounded-3xl text-center max-w-md w-full">
-        <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-100 shadow-sm mb-5">
-          <Target size={36} className="text-indigo-600 animate-target-pulse" />
-          <Sparkles size={20} className="absolute -top-2 -right-2 text-purple-600 animate-sparkle-spin" />
+        <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-white border border-slate-200 shadow-sm mb-5 p-3.5 animate-float">
+          <img src="/logo.png" alt="AI Journal Logo" className="h-full w-full object-contain rounded-xl" />
+          <Sparkles size={20} className="absolute -top-2 -right-2 text-indigo-600 animate-sparkle-spin" />
         </div>
 
         <h2 className="text-2xl font-bold text-slate-900 tracking-tight">AI Journal</h2>

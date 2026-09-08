@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.core.auth import get_current_user, AuthenticatedUser
-from app.schemas.goal import GoalCreate, GoalUpdate, GoalResponse
+from app.schemas.goal import GoalCreate, GoalUpdate, GoalResponse, FocusNextResponse
 from app.schemas.progress import ProgressCreate, ProgressResponse
 from app.services.goal_service import goal_service
 from app.services.progress_service import progress_service
@@ -25,6 +25,13 @@ def create_goal(
 ):
     """Create a new goal for the authenticated user."""
     return goal_service.create_goal(user_id=current_user.uid, data=data)
+
+@router.get("/focus-next", response_model=Optional[FocusNextResponse])
+def get_focus_next_recommendation(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Get the highest-priority goal recommendation and next actionable step."""
+    return goal_service.get_focus_next_recommendation(user_id=current_user.uid)
 
 @router.get("/{goal_id}", response_model=GoalResponse)
 def get_goal(

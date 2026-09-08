@@ -442,7 +442,6 @@ class PostgresGoalRepository(AbstractGoalRepository):
         db,
         firebase_uid: str
     ) -> Optional[int]:
-
         user = (
             db.query(UserORM)
             .filter(UserORM.firebase_uid == firebase_uid)
@@ -474,7 +473,6 @@ class PostgresGoalRepository(AbstractGoalRepository):
         row: GoalORM,
         firebase_uid: str
     ) -> Goal:
-
         return Goal(
             id=str(row.id),
             user_id=firebase_uid,
@@ -482,6 +480,9 @@ class PostgresGoalRepository(AbstractGoalRepository):
             description=row.description,
             category=row.category,
             status=row.status,
+            priority=getattr(row, "priority", "Medium Priority") or "Medium Priority",
+            progress_value=getattr(row, "progress_value", 0) or 0,
+            latest_progress_note=getattr(row, "latest_progress_note", None),
             target_date=row.target_date,
             created_at=row.created_at,
             updated_at=row.updated_at,
@@ -489,7 +490,6 @@ class PostgresGoalRepository(AbstractGoalRepository):
 
     def create(self, goal: Goal) -> Goal:
         db = SessionLocal()
-
         try:
             internal_user_id = self._get_internal_user_id(
                 db,
@@ -523,15 +523,15 @@ class PostgresGoalRepository(AbstractGoalRepository):
             db.commit()
             db.refresh(db_goal)
 
-            return self._to_domain(
-                db_goal,
-                goal.user_id
-            )
+            domain_goal = self._to_domain(db_goal, goal.user_id)
+            domain_goal.priority = goal.priority or "Medium Priority"
+            domain_goal.progress_value = goal.progress_value or 0
+            domain_goal.latest_progress_note = goal.latest_progress_note
+            return domain_goal
 
         except Exception:
             db.rollback()
             raise
-
         finally:
             db.close()
 
@@ -540,15 +540,12 @@ class PostgresGoalRepository(AbstractGoalRepository):
         user_id: str,
         goal_id: str
     ) -> Optional[Goal]:
-
         db = SessionLocal()
-
         try:
             internal_user_id = self._get_internal_user_id(
                 db,
                 user_id
             )
-
             if internal_user_id is None:
                 return None
 
@@ -570,7 +567,6 @@ class PostgresGoalRepository(AbstractGoalRepository):
                 return None
 
             return self._to_domain(row, user_id)
-
         finally:
             db.close()
 
@@ -579,15 +575,12 @@ class PostgresGoalRepository(AbstractGoalRepository):
         user_id: str,
         status: Optional[str] = None
     ) -> list[Goal]:
-
         db = SessionLocal()
-
         try:
             internal_user_id = self._get_internal_user_id(
                 db,
                 user_id
             )
-
             if internal_user_id is None:
                 return []
 
@@ -608,7 +601,6 @@ class PostgresGoalRepository(AbstractGoalRepository):
                 self._to_domain(row, user_id)
                 for row in rows
             ]
-
         finally:
             db.close()
 
@@ -618,15 +610,12 @@ class PostgresGoalRepository(AbstractGoalRepository):
         goal_id: str,
         **kwargs
     ) -> Optional[Goal]:
-
         db = SessionLocal()
-
         try:
             internal_user_id = self._get_internal_user_id(
                 db,
                 user_id
             )
-
             if internal_user_id is None:
                 return None
 
@@ -647,6 +636,7 @@ class PostgresGoalRepository(AbstractGoalRepository):
             if not row:
                 return None
 
+            # Only update columns that physically exist on GoalORM
             allowed_fields = {
                 "title",
                 "description",
@@ -660,16 +650,22 @@ class PostgresGoalRepository(AbstractGoalRepository):
                     setattr(row, key, value)
 
             row.updated_at = datetime.utcnow()
-
             db.commit()
             db.refresh(row)
 
-            return self._to_domain(row, user_id)
+            domain_goal = self._to_domain(row, user_id)
+            if "priority" in kwargs and kwargs["priority"] is not None:
+                domain_goal.priority = kwargs["priority"]
+            if "progress_value" in kwargs and kwargs["progress_value"] is not None:
+                domain_goal.progress_value = kwargs["progress_value"]
+            if "latest_progress_note" in kwargs and kwargs["latest_progress_note"] is not None:
+                domain_goal.latest_progress_note = kwargs["latest_progress_note"]
+
+            return domain_goal
 
         except Exception:
             db.rollback()
             raise
-
         finally:
             db.close()
 
@@ -678,15 +674,12 @@ class PostgresGoalRepository(AbstractGoalRepository):
         user_id: str,
         goal_id: str
     ) -> bool:
-
         db = SessionLocal()
-
         try:
             internal_user_id = self._get_internal_user_id(
                 db,
                 user_id
             )
-
             if internal_user_id is None:
                 return False
 
@@ -709,15 +702,13 @@ class PostgresGoalRepository(AbstractGoalRepository):
 
             db.delete(row)
             db.commit()
-
             return True
 
         except Exception:
             db.rollback()
             raise
-
         finally:
-            db.close()            
+            db.close()
 
 class PostgresProgressRepository(AbstractProgressRepository):
 

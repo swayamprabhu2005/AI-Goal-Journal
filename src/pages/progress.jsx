@@ -13,6 +13,7 @@ import { useState, useEffect, useRef } from "react";
 import { useData } from "../context/DataContext";
 import { progressApi } from "../services/api";
 import CircularProgress from "../components/CircularProgress";
+import TrendChart from "../components/TrendChart";
 
 function computeStreak(journals) {
   if (!journals || journals.length === 0) return 0;
@@ -120,127 +121,7 @@ function formatChange(value) {
   return "0%";
 }
 
-/**
- * Lightweight, responsive SVG trend chart built from backend progress history.
- * No chart library — pure SVG/CSS so it stays inside the existing Light UI.
- */
-function TrendChart({ data }) {
-  const W = 720;
-  const H = 260;
-  const padL = 42;
-  const padR = 16;
-  const padT = 18;
-  const padB = 40;
-  const chartW = W - padL - padR;
-  const chartH = H - padT - padB;
-  const minV = 0;
-  const maxV = 100;
-  const n = data.length;
 
-  const x = (i) => (n <= 1 ? padL + chartW / 2 : padL + (i / (n - 1)) * chartW);
-  const y = (v) =>
-    padT +
-    chartH -
-    ((Math.max(minV, Math.min(maxV, v)) - minV) / (maxV - minV)) * chartH;
-
-  const yTicks = [0, 25, 50, 75, 100];
-  const labelStep = Math.max(1, Math.ceil(n / 6));
-
-  const last = data[n - 1]?.progress_value;
-  const secondLast = data[n - 2]?.progress_value;
-  const trendColor =
-    n >= 2
-      ? last > secondLast
-        ? "#059669"
-        : last < secondLast
-        ? "#e11d48"
-        : "#94a3b8"
-      : "#6366f1";
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="w-full h-auto select-none"
-      role="img"
-      aria-label="Progress trend chart"
-    >
-      {/* Horizontal gridlines + Y-axis labels */}
-      {yTicks.map((tick) => (
-        <g key={tick}>
-          <line
-            x1={padL}
-            y1={y(tick)}
-            x2={W - padR}
-            y2={y(tick)}
-            stroke="#E2E8F0"
-            strokeWidth={1}
-            strokeDasharray={tick === 0 ? "" : "3 4"}
-          />
-          <text
-            x={padL - 8}
-            y={y(tick) + 4}
-            textAnchor="end"
-            fontSize={11}
-            fontWeight={600}
-            fill="#94A3B8"
-          >
-            {tick}%
-          </text>
-        </g>
-      ))}
-
-      {/* Trend line segments — each coloured by increase/decr(e)ase */}
-      {n > 1 &&
-        Array.from({ length: n - 1 }).map((_, i) => {
-          const from = data[i].progress_value;
-          const to = data[i + 1].progress_value;
-          const color = to > from ? "#10b981" : to < from ? "#f43f5e" : "#94a3b8";
-          return (
-            <line
-              key={`${data[i].id}-${i}`}
-              x1={x(i)}
-              y1={y(from)}
-              x2={x(i + 1)}
-              y2={y(to)}
-              stroke={color}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-            />
-          );
-        })}
-
-      {/* Data points for actual backend records */}
-      {data.map((p, i) => (
-        <circle
-          key={p.id || i}
-          cx={x(i)}
-          cy={y(p.progress_value)}
-          r={i === n - 1 ? 6 : 4.5}
-          fill="#ffffff"
-          stroke={i === n - 1 ? trendColor : "#6366f1"}
-          strokeWidth={i === n - 1 ? 3 : 2}
-        />
-      ))}
-
-      {/* X-axis date labels */}
-      {data.map((p, i) =>
-        i % labelStep === 0 || i === n - 1 ? (
-          <text
-            key={`label-${p.id || i}`}
-            x={x(i)}
-            y={H - 14}
-            textAnchor="middle"
-            fontSize={10}
-            fontWeight={600}
-            fill="#94A3B8"
-          >
-            {formatChartDate(p.created_at)}
-          </text>
-        ) : null
-      )}
-    </svg>
-  );
-}
 
 export default function Progress() {
   const { goals = [], journals = [], initialLoading } = useData();

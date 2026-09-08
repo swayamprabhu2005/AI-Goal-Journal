@@ -125,9 +125,9 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-[84px] shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-6 backdrop-blur-md md:px-9">
+    <div className="flex h-[84px] w-full items-center justify-between px-6 md:px-9 bg-white">
       {/* LEFT: Dynamic Page Title */}
-      <div className="flex items-center gap-2 pl-12 lg:pl-0">
+      <div className="flex items-center min-w-0">
         <h1
           key={currentTitle}
           className="animate-title text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate"
@@ -306,6 +306,6 @@ export default function Navbar() {
           )}
         </div>
       </div>
-    </header>
+    </div>
   );
 }

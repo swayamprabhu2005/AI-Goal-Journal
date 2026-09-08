@@ -95,11 +95,12 @@ class ProductivityScoreService:
         journal_consistency_score = min(100.0, (days_journaled / 5.0) * 100.0)
 
         # 4. Final Aggregation & Deductions
+        # Base Score: 30% Progress + 20% Completion + 20% Activities + 30% Consistency
         base_score = (
             (0.30 * goal_progress_score)
             + (0.20 * goal_completion_score)
             + (0.20 * completed_activities_score)
-            + (0.20 * journal_consistency_score)
+            + (0.30 * journal_consistency_score)
         )
 
         blocker_penalty = min(15.0, float(blocker_count * 3))

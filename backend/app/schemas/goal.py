@@ -48,3 +48,13 @@ class GoalResponse(BaseModel):
     estimated_days_remaining: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+
+class FocusNextResponse(BaseModel):
+    goal_id: str
+    title: str
+    category: Optional[str] = "General"
+    priority: str
+    target_date: Optional[str] = None
+    progress_value: int
+    reason: str
+    next_action: str

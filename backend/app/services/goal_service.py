@@ -6,10 +6,10 @@ import difflib
 from typing import Optional, Any
 from app.models.domain import Goal
 from app.schemas.goal import GoalCreate, GoalUpdate
-from app.repositories.in_memory import goal_repo
+from app.repositories.postgres import goal_repo, progress_repo
 
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 class GoalService:
     @staticmethod
@@ -158,8 +158,7 @@ class GoalService:
             note = data.latest_progress_note or "Goal marked as completed (100%)"
             updates["latest_progress_note"] = note
             try:
-                from app.repositories.in_memory import progress_repo
-                from app.models.domain import Progress
+                from app.repositories.postgres import progress_repo
                 progress_repo.create(
                     Progress(
                         id=str(uuid.uuid4()),
@@ -283,5 +282,119 @@ class GoalService:
             logger.info("Auto-created goal '%s' (ID: %s) for user %s", new_goal.title, new_goal.id, user_id)
 
         return created
+
+    @staticmethod
+    def categorize_goal_deadline(goal: Any) -> str:
+        """
+        Categorizes goals into Completed, Overdue, Due Today, Upcoming, or No Target Date.
+        Works with both Pydantic models (Goal) and dictionary objects.
+        """
+        # Safely extract status and completion
+        status = getattr(goal, "status", None) if hasattr(goal, "status") else (goal.get("status") if isinstance(goal, dict) else "")
+        is_completed = getattr(goal, "completed", False) if hasattr(goal, "completed") else (goal.get("completed", False) if isinstance(goal, dict) else False)
+        progress = getattr(goal, "progress_value", 0) if hasattr(goal, "progress_value") else (goal.get("progress_value", 0) if isinstance(goal, dict) else 0)
+
+        if str(status).lower() == "completed" or is_completed or (progress and progress >= 100):
+            return "Completed"
+        
+        target_date = getattr(goal, "target_date", None) if hasattr(goal, "target_date") else (goal.get("target_date") if isinstance(goal, dict) else None)
+        if not target_date:
+            return "No Target Date"
+
+        today = date.today()
+        if isinstance(target_date, str):
+            try:
+                target_date = date.fromisoformat(target_date.split("T")[0])
+            except ValueError:
+                return "Upcoming"
+        elif isinstance(target_date, datetime):
+            target_date = target_date.date()
+
+        if target_date < today:
+            return "Overdue"
+        elif target_date == today:
+            return "Due Today"
+        else:
+            return "Upcoming"
+
+    def get_focus_next_recommendation(self, user_id: str) -> Optional[dict]:
+        """
+        Determines the top priority goal for the user to focus on next,
+        along with a contextual reason and actionable next step.
+        """
+        uid = user_id or "default_user"
+        all_goals = self.list_goals(user_id=uid)
+        active_goals = [g for g in all_goals if (g.status or "").lower() != "completed" and (g.progress_value or 0) < 100]
+
+        if not active_goals:
+            return None
+
+        today = datetime.now(timezone.utc).date()
+
+        def goal_urgency_score(goal: Goal) -> tuple[int, int, int]:
+            # Priority rank: High (3), Medium (2), Low (1)
+            p_score = 3 if "High" in (goal.priority or "") else (2 if "Medium" in (goal.priority or "") else 1)
+
+            # Deadline proximity
+            days_left = 9999
+            if goal.target_date:
+                try:
+                    clean_date = str(goal.target_date).split("T")[0]
+                    target_d = datetime.strptime(clean_date, "%Y-%m-%d").date()
+                    days_left = (target_d - today).days
+                except Exception:
+                    pass
+
+            # Lower progress gets higher urgency within the same priority
+            progress = goal.progress_value or 0
+            return (p_score, -days_left, -progress)
+
+        # Pick the highest urgency goal
+        target_goal = max(active_goals, key=goal_urgency_score)
+
+        # Generate Contextual Reason
+        days_left_num = None
+        if target_goal.target_date:
+            try:
+                clean_date = str(target_goal.target_date).split("T")[0]
+                days_left_num = (datetime.strptime(clean_date, "%Y-%m-%d").date() - today).days
+            except Exception:
+                pass
+
+        reasons = [f"{target_goal.priority or 'Medium Priority'}"]
+        if days_left_num is not None:
+            if days_left_num < 0:
+                reasons.append(f"overdue by {abs(days_left_num)} day{'s' if abs(days_left_num) > 1 else ''}")
+            elif days_left_num == 0:
+                reasons.append("due today")
+            elif days_left_num == 1:
+                reasons.append("due tomorrow")
+            else:
+                reasons.append(f"due in {days_left_num} days")
+
+        reasons.append(f"currently at {target_goal.progress_value or 0}% progress")
+        reason_text = ", ".join(reasons) + "."
+
+        # Generate Actionable Next Step
+        prog = target_goal.progress_value or 0
+        if prog == 0:
+            next_action_text = f"Draft the initial outline and finish step 1 for '{target_goal.title}'."
+        elif prog < 50:
+            next_action_text = f"Dedicate a 45-minute focus sprint to push progress beyond 50%."
+        elif prog < 85:
+            next_action_text = f"Review remaining milestones and tackle final deliverables today."
+        else:
+            next_action_text = f"Finalize last deliverables and mark '{target_goal.title}' as completed."
+
+        return {
+            "goal_id": target_goal.id,
+            "title": target_goal.title,
+            "category": target_goal.category or "General",
+            "priority": target_goal.priority or "High Priority",
+            "target_date": target_goal.target_date,
+            "progress_value": target_goal.progress_value or 0,
+            "reason": reason_text,
+            "next_action": next_action_text,
+        }
 
 goal_service = GoalService()

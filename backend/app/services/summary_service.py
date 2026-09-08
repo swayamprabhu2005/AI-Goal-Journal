@@ -2,7 +2,7 @@ import uuid
 import logging
 from typing import Optional
 from app.models.domain import WeeklySummary
-from app.repositories.in_memory import summary_repo, journal_repo, goal_repo
+from app.repositories.postgres import summary_repo, journal_repo, goal_repo
 from app.services.gemini_service import gemini_service
 from app.core.crypto import crypto_service
 

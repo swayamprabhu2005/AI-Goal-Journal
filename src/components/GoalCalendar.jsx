@@ -8,81 +8,141 @@ import {
   CheckCircle2,
   CalendarDays,
   Target,
-  Sparkles,
   Filter,
 } from 'lucide-react';
+
+export const getGoalDeadlineStatus = (goal) => {
+  // 1. Completed goals are never overdue
+  const statusStr = typeof goal.status === 'string' ? goal.status.toLowerCase() : '';
+  if (statusStr === 'completed' || goal.completed || (goal.progress_value && goal.progress_value >= 100)) {
+    return {
+      category: 'Completed',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      isOverdue: false,
+      isDueToday: false,
+      daysRemaining: null,
+      reminderLabel: 'Completed',
+    };
+  }
+
+  if (!goal.target_date) {
+    return {
+      category: 'No Deadline',
+      badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+      isOverdue: false,
+      isDueToday: false,
+      daysRemaining: null,
+      reminderLabel: 'No Target Date',
+    };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const target = new Date(goal.target_date);
+  target.setHours(0, 0, 0, 0);
+
+  const diffTime = target.getTime() - today.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return {
+      category: 'Overdue',
+      badgeClass: 'bg-rose-100 text-rose-700 border-rose-300 font-bold',
+      isOverdue: true,
+      isDueToday: false,
+      daysRemaining: diffDays,
+      reminderLabel: `${Math.abs(diffDays)}d overdue`,
+    };
+  } else if (diffDays === 0) {
+    return {
+      category: 'Due Today',
+      badgeClass: 'bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse',
+      isOverdue: false,
+      isDueToday: true,
+      daysRemaining: 0,
+      reminderLabel: 'Due Today',
+    };
+  } else if (diffDays === 1) {
+    return {
+      category: 'Upcoming',
+      badgeClass: 'bg-blue-100 text-blue-700 border-blue-300 font-medium',
+      isOverdue: false,
+      isDueToday: false,
+      daysRemaining: 1,
+      reminderLabel: 'Due Tomorrow',
+    };
+  } else {
+    return {
+      category: 'Upcoming',
+      badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 font-medium',
+      isOverdue: false,
+      isDueToday: false,
+      daysRemaining: diffDays,
+      reminderLabel: `Due in ${diffDays} days`,
+    };
+  }
+};
 
 export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEdit }) {
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
   const [selectedDateStr, setSelectedDateStr] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
 
-  // Today reference normalized to midnight
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
 
-  // Filter goals by status filter
-  const filteredGoals = useMemo(() => {
-    if (statusFilter === 'All') return goals;
-    if (statusFilter === 'Overdue') {
-      return goals.filter((g) => {
-        if (!g.target_date || g.status === 'Completed') return false;
-        const target = new Date(g.target_date);
-        target.setHours(0, 0, 0, 0);
-        return target < today;
-      });
-    }
-    return goals.filter((g) => g.status?.toLowerCase() === statusFilter.toLowerCase());
-  }, [goals, statusFilter, today]);
+  // Top metric bar aggregation
+  const stats = useMemo(() => {
+    let totalWithDate = 0;
+    let overdue = 0;
+    let upcoming = 0;
+    let completed = 0;
 
-  // Map goals with target dates into date-indexed map ('YYYY-MM-DD' => goals[])
+    goals.forEach((goal) => {
+      if (goal.target_date) totalWithDate++;
+      const dl = getGoalDeadlineStatus(goal);
+
+      if (dl.category === 'Completed') completed++;
+      else if (dl.category === 'Overdue') overdue++;
+      else if (dl.category === 'Upcoming' || dl.category === 'Due Today') upcoming++;
+    });
+
+    return { totalWithDate, overdue, upcoming, completed };
+  }, [goals]);
+
+  // Overdue goals list
+  const overdueGoals = useMemo(() => {
+    return goals
+      .filter((g) => getGoalDeadlineStatus(g).category === 'Overdue')
+      .sort((a, b) => new Date(a.target_date) - new Date(b.target_date));
+  }, [goals]);
+
+  // Upcoming & Due Today goals list
+  const upcomingGoals = useMemo(() => {
+    return goals
+      .filter((g) => {
+        const cat = getGoalDeadlineStatus(g).category;
+        return cat === 'Upcoming' || cat === 'Due Today';
+      })
+      .sort((a, b) => new Date(a.target_date) - new Date(b.target_date));
+  }, [goals]);
+
+  // Map goals with target dates ('YYYY-MM-DD' => goals[])
   const goalsByDate = useMemo(() => {
     const map = {};
     goals.forEach((goal) => {
       if (!goal.target_date) return;
-      // Handle standard ISO date YYYY-MM-DD or full date string
       const dateKey = goal.target_date.split('T')[0];
-      if (!map[dateKey]) {
-        map[dateKey] = [];
-      }
+      if (!map[dateKey]) map[dateKey] = [];
       map[dateKey].push(goal);
     });
     return map;
   }, [goals]);
 
-  // Derived arrays for Overdue and Upcoming deadlines
-  const overdueGoals = useMemo(() => {
-    return goals
-      .filter((g) => {
-        if (!g.target_date || g.status === 'Completed') return false;
-        const target = new Date(g.target_date);
-        target.setHours(0, 0, 0, 0);
-        return target < today;
-      })
-      .sort((a, b) => new Date(a.target_date) - new Date(b.target_date));
-  }, [goals, today]);
-
-  const upcomingGoals = useMemo(() => {
-    return goals
-      .filter((g) => {
-        if (!g.target_date || g.status === 'Completed') return false;
-        const target = new Date(g.target_date);
-        target.setHours(0, 0, 0, 0);
-        return target >= today;
-      })
-      .sort((a, b) => new Date(a.target_date) - new Date(b.target_date));
-  }, [goals, today]);
-
-  const completedGoalsWithDates = useMemo(() => {
-    return goals
-      .filter((g) => g.status === 'Completed' && g.target_date)
-      .sort((a, b) => new Date(b.target_date) - new Date(a.target_date));
-  }, [goals]);
-
-  // Helper functions for month navigation
   const prevMonth = () => {
     setCurrentMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
@@ -96,84 +156,40 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
     setSelectedDateStr(new Date().toISOString().split('T')[0]);
   };
 
-  // Calendar grid computation
   const year = currentMonthDate.getFullYear();
   const month = currentMonthDate.getMonth();
   const monthName = currentMonthDate.toLocaleString('default', { month: 'long' });
-
-  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 = Sun
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // Generate matrix cells
   const calendarDays = useMemo(() => {
     const days = [];
-    // Padding from previous month
     const prevMonthDays = new Date(year, month, 0).getDate();
     for (let i = firstDayOfMonth - 1; i >= 0; i--) {
-      days.push({
-        dayNumber: prevMonthDays - i,
-        isCurrentMonth: false,
-        dateKey: null,
-      });
+      days.push({ dayNumber: prevMonthDays - i, isCurrentMonth: false, dateKey: null });
     }
-    // Days of current month
     for (let d = 1; d <= daysInMonth; d++) {
       const monthStr = String(month + 1).padStart(2, '0');
       const dayStr = String(d).padStart(2, '0');
-      const dateKey = `${year}-${monthStr}-${dayStr}`;
-      days.push({
-        dayNumber: d,
-        isCurrentMonth: true,
-        dateKey,
-      });
+      days.push({ dayNumber: d, isCurrentMonth: true, dateKey: `${year}-${monthStr}-${dayStr}` });
     }
-    // Padding for remaining grid to complete 35 or 42 cells
     const remaining = (7 - (days.length % 7)) % 7;
     for (let i = 1; i <= remaining; i++) {
-      days.push({
-        dayNumber: i,
-        isCurrentMonth: false,
-        dateKey: null,
-      });
+      days.push({ dayNumber: i, isCurrentMonth: false, dateKey: null });
     }
     return days;
   }, [year, month, firstDayOfMonth, daysInMonth]);
 
-  // Helper to format days overdue or days left
-  function getDeadlineLabel(targetDateStr, status) {
-    if (status === 'Completed') return { text: 'Completed', color: 'text-emerald-600 bg-emerald-50' };
-    const target = new Date(targetDateStr);
-    target.setHours(0, 0, 0, 0);
-    const diffTime = target.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-      const daysAgo = Math.abs(diffDays);
-      return {
-        text: `${daysAgo} day${daysAgo === 1 ? '' : 's'} overdue`,
-        color: 'text-rose-600 bg-rose-50 border-rose-200 font-bold',
-        isOverdue: true,
-      };
-    } else if (diffDays === 0) {
-      return { text: 'Due Today!', color: 'text-amber-700 bg-amber-100 border-amber-300 font-bold' };
-    } else if (diffDays === 1) {
-      return { text: 'Due Tomorrow', color: 'text-indigo-700 bg-indigo-50 border-indigo-200' };
-    } else {
-      return { text: `${diffDays} days left`, color: 'text-slate-600 bg-slate-100 border-slate-200' };
-    }
-  }
-
-  // Selected date's goals
   const selectedDateGoals = selectedDateStr ? goalsByDate[selectedDateStr] || [] : [];
 
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Overview Metric Bar */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="panel p-5 shadow-sm border-slate-200 bg-white flex items-center justify-between">
+        <div className="panel p-5 shadow-sm border-slate-200 bg-white flex items-center justify-between rounded-2xl border">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Milestones</p>
-            <h4 className="text-2xl font-bold text-slate-900 mt-1">{goals.filter((g) => g.target_date).length}</h4>
+            <h4 className="text-2xl font-bold text-slate-900 mt-1">{stats.totalWithDate}</h4>
             <p className="text-[11px] text-slate-500 font-medium">goals with target dates</p>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
@@ -181,10 +197,10 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
           </div>
         </div>
 
-        <div className="panel p-5 shadow-sm border-rose-200 bg-rose-50/40 flex items-center justify-between">
+        <div className="panel p-5 shadow-sm border-rose-200 bg-rose-50/40 flex items-center justify-between rounded-2xl border">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-rose-700">Overdue Goals</p>
-            <h4 className="text-2xl font-bold text-rose-700 mt-1">{overdueGoals.length}</h4>
+            <h4 className="text-2xl font-bold text-rose-700 mt-1">{stats.overdue}</h4>
             <p className="text-[11px] text-rose-600 font-medium">requires immediate attention</p>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
@@ -192,10 +208,10 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
           </div>
         </div>
 
-        <div className="panel p-5 shadow-sm border-indigo-200 bg-indigo-50/40 flex items-center justify-between">
+        <div className="panel p-5 shadow-sm border-indigo-200 bg-indigo-50/40 flex items-center justify-between rounded-2xl border">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Upcoming Deadlines</p>
-            <h4 className="text-2xl font-bold text-indigo-700 mt-1">{upcomingGoals.length}</h4>
+            <h4 className="text-2xl font-bold text-indigo-700 mt-1">{stats.upcoming}</h4>
             <p className="text-[11px] text-indigo-600 font-medium">scheduled in future</p>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
@@ -203,10 +219,10 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
           </div>
         </div>
 
-        <div className="panel p-5 shadow-sm border-emerald-200 bg-emerald-50/40 flex items-center justify-between">
+        <div className="panel p-5 shadow-sm border-emerald-200 bg-emerald-50/40 flex items-center justify-between rounded-2xl border">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Completed on Time</p>
-            <h4 className="text-2xl font-bold text-emerald-700 mt-1">{completedGoalsWithDates.length}</h4>
+            <h4 className="text-2xl font-bold text-emerald-700 mt-1">{stats.completed}</h4>
             <p className="text-[11px] text-emerald-600 font-medium">milestones achieved</p>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
@@ -215,7 +231,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
         </div>
       </div>
 
-      {/* OVERDUE GOALS BANNER ALERT (If any exist) */}
+      {/* OVERDUE GOALS BANNER ALERT */}
       {overdueGoals.length > 0 && (
         <section className="rounded-3xl p-6 bg-gradient-to-r from-rose-500/10 via-rose-50 to-white border border-rose-200/90 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
@@ -227,7 +243,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {overdueGoals.map((goal) => {
-              const deadline = getDeadlineLabel(goal.target_date, goal.status);
+              const deadline = getGoalDeadlineStatus(goal);
               return (
                 <div
                   key={goal.id}
@@ -235,8 +251,8 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 bg-rose-100 border border-rose-200">
-                        {deadline.text}
+                      <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${deadline.badgeClass}`}>
+                        {deadline.reminderLabel}
                       </span>
                       <span className="text-[10px] text-slate-500 font-mono">
                         Target: {new Date(goal.target_date).toLocaleDateString()}
@@ -274,7 +290,6 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
       <div className="grid gap-7 lg:grid-cols-[1.8fr_1.1fr]">
         {/* CALENDAR MONTH MATRIX */}
         <section className="panel p-6 sm:p-7 shadow-sm bg-white border border-slate-200 rounded-3xl">
-          {/* Calendar Header Controls */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
@@ -314,7 +329,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
             </div>
           </div>
 
-          {/* Status Filter Pills inside Calendar */}
+          {/* Status Filter Pills */}
           <div className="flex flex-wrap items-center gap-2 mb-5">
             <span className="text-xs font-bold text-slate-500 flex items-center gap-1 mr-1">
               <Filter size={13} /> Filter:
@@ -361,17 +376,13 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
 
               const dateKey = cell.dateKey;
               const goalsOnDate = (goalsByDate[dateKey] || []).filter((g) => {
+                const deadline = getGoalDeadlineStatus(g);
                 if (statusFilter === 'All') return true;
-                if (statusFilter === 'Overdue') {
-                  const target = new Date(g.target_date);
-                  target.setHours(0, 0, 0, 0);
-                  return target < today && g.status !== 'Completed';
-                }
+                if (statusFilter === 'Overdue') return deadline.category === 'Overdue';
                 return g.status?.toLowerCase() === statusFilter.toLowerCase();
               });
 
-              const isTodayCell =
-                dateKey === today.toISOString().split('T')[0];
+              const isTodayCell = dateKey === today.toISOString().split('T')[0];
               const isSelected = selectedDateStr === dateKey;
 
               return (
@@ -391,9 +402,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold ${
-                        isTodayCell
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-700'
+                        isTodayCell ? 'bg-indigo-600 text-white' : 'text-slate-700'
                       }`}
                     >
                       {cell.dayNumber}
@@ -406,25 +415,13 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                     )}
                   </div>
 
-                  {/* Goal Badges inside Cell */}
                   <div className="mt-1 flex flex-col gap-1 overflow-hidden">
                     {goalsOnDate.slice(0, 2).map((g) => {
-                      const isOverdueGoal =
-                        g.status !== 'Completed' &&
-                        new Date(g.target_date) < today;
-
+                      const deadline = getGoalDeadlineStatus(g);
                       return (
                         <div
                           key={g.id}
-                          className={`truncate text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
-                            g.status === 'Completed'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : isOverdueGoal
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : g.status === 'Stalled'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                          }`}
+                          className={`truncate text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${deadline.badgeClass}`}
                           title={g.title}
                         >
                           {g.title}
@@ -445,7 +442,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
 
         {/* DEADLINES & INSPECTOR SIDEBAR */}
         <section className="space-y-6">
-          {/* Selected Date Inspector Panel (if date is picked) */}
+          {/* Selected Date Inspector Panel */}
           {selectedDateStr && (
             <div className="panel p-6 shadow-sm bg-gradient-to-br from-indigo-50/60 to-white border border-indigo-200 rounded-3xl animate-fade-in">
               <div className="flex items-center justify-between mb-3 border-b border-indigo-100 pb-3">
@@ -533,16 +530,17 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
             ) : (
               <div className="divide-y divide-slate-100 max-h-[380px] overflow-y-auto pr-1">
                 {upcomingGoals.map((goal) => {
-                  const deadline = getDeadlineLabel(goal.target_date, goal.status);
+                  const deadlineInfo = getGoalDeadlineStatus(goal);
                   return (
                     <div key={goal.id} className="py-3.5 first:pt-0 last:pb-0 flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span
-                            className={`rounded-md px-2 py-0.5 text-[10px] font-bold border ${deadline.color}`}
-                          >
-                            {deadline.text}
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          {/* Dynamic Deadline Badge */}
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium border ${deadlineInfo.badgeClass}`}>
+                            {deadlineInfo.reminderLabel}
                           </span>
+
+                          {/* Priority Tag */}
                           {goal.priority && goal.status !== 'Completed' && (
                             <span
                               className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase border ${
@@ -550,18 +548,27 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                                   ? 'bg-rose-50 text-rose-700 border-rose-200'
                                   : goal.priority.includes('Low')
                                   ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
                               }`}
                             >
                               {goal.priority}
                             </span>
                           )}
+
+                          {/* Action Required Alert for approaching deadlines (<= 2 days) */}
+                          {!deadlineInfo.isOverdue && deadlineInfo.daysRemaining !== null && deadlineInfo.daysRemaining <= 2 && deadlineInfo.daysRemaining >= 0 && (
+                            <span className="text-xs text-amber-600 font-medium flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              ⚠️ Action Required
+                            </span>
+                          )}
+
                           {goal.category && (
                             <span className="text-[10px] text-slate-400 font-semibold truncate">
                               {goal.category}
                             </span>
                           )}
                         </div>
+
                         <h5 className="text-sm font-bold text-slate-900 leading-snug truncate">
                           {goal.title}
                         </h5>

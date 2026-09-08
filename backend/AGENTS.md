@@ -65,6 +65,8 @@ The `backend/` directory houses the complete FastAPI application providing REST 
 - `app/models/` — Domain dataclasses (`domain.py`)
 - `app/repositories/` — Repository pattern (`in_memory.py` default; `postgres.py` prepared for future cloud)
 - `app/schemas/` — Pydantic request/response validation schemas
-- `app/services/` — Core business logic services (Whisper, Gemini, Goals, Journals, Progress, Productivity, Coach)
-- `tests/` — 22 Automated pytest unit and security tests (`test_encryption.py`, `test_progress_trends.py`, `test_auto_goals.py`, `test_slash_routes.py`, `test_unit.py`)
+- `app/services/` — Core business logic services (Whisper, Gemini, Goals, Journals, Progress, Productivity, Coach, Migration)
+- `scripts/` — Database administration and maintenance scripts:
+  - `migrate_existing_data.py` — Safe batch migration CLI tool converting legacy plaintext to AES-256-GCM ciphertext
+- `tests/` — Automated pytest unit, security, and migration tests (`test_encryption.py`, `test_progress_trends.py`, `test_auto_goals.py`, `test_migration.py`, `test_slash_routes.py`, `test_unit.py`)
 - `requirements.txt` — Python dependencies

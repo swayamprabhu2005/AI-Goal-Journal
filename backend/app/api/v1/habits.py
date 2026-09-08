@@ -127,6 +127,15 @@ def complete_habit(
     completed_date: Optional[datetime] = None,
     current_user=Depends(get_current_user)
 ):
+    if completed_date is not None:
+        today_utc = datetime.utcnow().date()
+        # Allow +/- 1 day to account for client local timezone offsets relative to UTC
+        if abs((completed_date.date() - today_utc).days) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only the current day can be marked as completed."
+            )
+
     log = habit_service.complete_habit(
         current_user.uid,
         habit_id,
@@ -151,6 +160,14 @@ def uncomplete_habit(
     completed_date: Optional[datetime] = None,
     current_user=Depends(get_current_user)
 ):
+    if completed_date is not None:
+        today_utc = datetime.utcnow().date()
+        if abs((completed_date.date() - today_utc).days) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only the current day can be modified."
+            )
+
     removed = habit_service.uncomplete_habit(
         current_user.uid,
         habit_id,

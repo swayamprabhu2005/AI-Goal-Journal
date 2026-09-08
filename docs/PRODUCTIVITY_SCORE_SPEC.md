@@ -21,13 +21,12 @@ Backend	Count/aggregate the above, combine with persisted goal status/progress a
 This means the score is reproducible — recomputing it from the same stored data always yields the same result, and it isn't vulnerable to LLM output drift between calls.
 ---
 3. Weightings
-Component	Weight	Rationale
-Goal Progress	30%	Primary signal — are active goals actually moving forward
-Goal Completion	20%	Rewards follow-through, not just activity
-Completed Activities	20%	Captures day-to-day execution, not just goal-linked work
-Journal Consistency	20%	Reflects engagement/reflection habit — a leading indicator, since users who stop journaling usually stop tracking progress at all
-Blockers (penalty)	-10% (deduction)	Recurring/unresolved blockers reduce the score — reflects friction, not just raw output
-Weights sum to 100% across the four positive components; the blocker factor is a deduction applied after the weighted sum, capped so it can reduce the score but never push it negative.
+Component              Weight             Rationale
+Goal Progress          30%                Primary signal are active goals actually moving forward
+Goal Completion        20%                Rewards follow-through, not just activity
+Completed Activities   20%                Captures day-to-day execution, not just goal-linked work
+Journal Consistency    30%                Reflects engagement/reflection habit, a leading indicator
+Blockers (penalty)     -10% (deduction)   Recurring/unresolved blockers reduce the score, reflects friction
 ---
 4. Formula
 ```
@@ -35,7 +34,7 @@ Base Score =
       (0.30 × GoalProgressScore)
     + (0.20 × GoalCompletionScore)
     + (0.20 × CompletedActivitiesScore)
-    + (0.20 × JournalConsistencyScore)
+    + (0.30 × JournalConsistencyScore)
 
 Blocker Penalty = min(15, BlockerCount_last_7_days × 3)
 
@@ -70,11 +69,11 @@ Example 1 — Highly engaged user
 Journaled 6 of last 7 days → JournalConsistencyScore = min(100, 120) = 100
 1 blocker logged in last 7 days → BlockerPenalty = min(15, 3) = 3
 ```
-Base = (0.30×80) + (0.20×60) + (0.20×100) + (0.20×100)
-     = 24 + 12 + 20 + 20 = 76
-Final = clamp(76 − 3, 0, 100) = 73
+Base = (0.30 × 80) + (0.20 × 60) + (0.20 × 100) + (0.30 × 100)
+     = 24 + 12 + 20 + 30 = 86
+Final = clamp(86 − 3, 0, 100) = 83
 ```
-Score: 73/100 — "Solid progress, keep the consistency going." Sensible: strong activity and consistency, but goal completion ratio and one blocker keep it from the 80s.
+Score: 83/100 — "Solid progress, keep the consistency going." Sensible: strong activity and consistency, but goal completion ratio and one blocker keep it from the 90s.
 Example 2 — Inactive/stalled user
 1 active goal, progress 20%, last updated 25 days ago → decay applies, effective GoalProgressScore ≈ 20 × 0.4 = 8
 2 goals total, 0 completed → GoalCompletionScore = 0
@@ -82,7 +81,7 @@ Example 2 — Inactive/stalled user
 Journaled 0 of last 7 days → JournalConsistencyScore = 0
 No journal entries → BlockerPenalty = 0 (no data, no penalty)
 ```
-Base = (0.30×8) + (0.20×0) + (0.20×0) + (0.20×0) = 2.4
+Base = (0.30 × 8) + (0.20 × 0) + (0.20 × 0) + (0.30 × 0) = 2.4
 Final = clamp(2.4 − 0, 0, 100) = 2
 ```
 Score: 2/100 — "Just getting started." Sensible: correctly reflects near-total inactivity without being unfairly punitive (no blocker penalty on top of an already-low base).
@@ -93,11 +92,11 @@ Example 3 — Moderate user with recurring friction
 Journaled 4 of last 7 days → JournalConsistencyScore = min(100, 80) = 80
 4 blockers logged in last 7 days (recurring technical issue) → BlockerPenalty = min(15, 12) = 12
 ```
-Base = (0.30×55) + (0.20×25) + (0.20×60) + (0.20×80)
-     = 16.5 + 5 + 12 + 16 = 49.5
-Final = clamp(49.5 − 12, 0, 100) = 37.5 → 38
+Base = (0.30 × 55) + (0.20 × 25) + (0.20 × 60) + (0.30 × 80)
+     = 16.5 + 5 + 12 + 24 = 57.5
+Final = clamp(57.5 − 12, 0, 100) = 45.5 → 46
 ```
-Score: 38/100 — "Making some headway." Sensible: reasonable underlying activity and consistency, but the recurring-blocker penalty visibly drags the score down — which is the intended signal (surface friction, don't hide it).
+Score: 46/100 — "Making some headway." Sensible: reasonable underlying activity and consistency, but the recurring-blocker penalty visibly drags the score down — which is the intended signal (surface friction, don't hide it).
 ---
 7. Why This Satisfies the "No Arbitrary AI Score" Requirement
 Gemini's output per journal entry (activities, blockers) is already schema-constrained and has been stable/tested across sample entries (Day 3–7 work).
@@ -105,7 +104,7 @@ The score itself is computed by a pure function of counts, ratios, and timestamp
 This also makes the score auditable: every component can be shown in the UI with its raw value, so a user (or a grader) can verify the math rather than trusting an opaque AI-generated figure.
 ---
 8. Next Steps (Implementation)
-Confirm `goals.progress_percent` field exists or gets added (currently only `status` is tracked in `GoalORM`).
+Confirm progress is read from progress_value across Goal domain models and repository layers.
 Implement `ProductivityScoreService.compute_score()` per this formula (draft version already built — see `productivity_score_service.py`).
 Add `GET /productivity-score` endpoint.
 Add UI display (score + component breakdown) once endpoint is live.

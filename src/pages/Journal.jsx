@@ -49,6 +49,7 @@ export default function Journal() {
   const [acceptingTitle, setAcceptingTitle] = useState(null);
 
   const resultsRef = useRef(null);
+  const historyListRef = useRef(null);
 
   const loadingList = !hasLoadedJournals;
 
@@ -98,6 +99,7 @@ export default function Journal() {
       setLatestAnalysis(result.ai_analysis);
       setSelectedJournal(result);
       setShowCompose(false);
+      setCurrentPage(1);
       if (source === "text") {
         setEntryText("");
       }
@@ -174,6 +176,22 @@ export default function Journal() {
       )
     : journals;
 
+  const totalPages = Math.max(1, Math.ceil(filteredJournals.length / itemsPerPage));
+
+  // Auto-clamp currentPage if deletions or filter changes reduce totalPages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  // Reset scroll to top of reflection history when changing page
+  useEffect(() => {
+    if (historyListRef.current) {
+      historyListRef.current.scrollTop = 0;
+    }
+  }, [currentPage]);
+
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedJournals = filteredJournals.slice(startIndex, startIndex + itemsPerPage);
 
@@ -217,7 +235,25 @@ export default function Journal() {
           <div className="lg:col-span-7 xl:col-span-8 space-y-7 min-w-0">
             {/* 1. WRITE REFLECTION PANEL (WHEN COMPOSE MODE IS ACTIVE) */}
             {showCompose && (
-              <section className="panel p-7 sm:p-9 shadow-sm bg-white border border-slate-200 rounded-3xl animate-rise">
+              <section className="panel p-7 sm:p-9 shadow-sm bg-white border border-slate-200 rounded-3xl animate-rise relative overflow-hidden">
+                {/* Translucent Sheet Overlay during Gemini Analysis */}
+                {submitting && (
+                  <div className="absolute inset-0 z-20 bg-white/85 backdrop-blur-[2px] rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-fade-in select-none">
+                    <div className="relative mb-5 flex items-center justify-center">
+                      <div className="h-16 w-16 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Sparkles size={24} className="text-indigo-600 animate-pulse" />
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-1.5">
+                      Analyzing reflection with Gemini...
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-sm font-medium leading-relaxed">
+                      Please wait while we extract your tracked goals, completed activities, and active blockers. Your text has been locked.
+                    </p>
+                  </div>
+                )}
+
                 {/* Top Sub-Header Bar inside Card */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-100">
                   <div className="flex items-center gap-3">
@@ -233,22 +269,24 @@ export default function Journal() {
                   <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 p-1 self-start sm:self-auto">
                     <button
                       onClick={() => setActiveTab("text")}
+                      disabled={submitting}
                       className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                         activeTab === "text"
                           ? "bg-indigo-600 text-white shadow-sm font-bold"
                           : "text-slate-600 hover:text-slate-900"
-                      }`}
+                      } ${submitting ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                       <FileText size={16} />
                       Text Mode
                     </button>
                     <button
                       onClick={() => setActiveTab("voice")}
+                      disabled={submitting}
                       className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                         activeTab === "voice"
                           ? "bg-indigo-600 text-white shadow-sm font-bold"
                           : "text-slate-600 hover:text-slate-900"
-                      }`}
+                      } ${submitting ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                       <Mic size={16} />
                       Voice Mode (Whisper)
@@ -276,7 +314,9 @@ export default function Journal() {
                       rows={7}
                       value={entryText}
                       onChange={(e) => setEntryText(e.target.value)}
-                      className="w-full p-5 text-base text-slate-800 placeholder:text-slate-400 leading-relaxed bg-white border border-slate-200 rounded-2xl outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                      disabled={submitting}
+                      readOnly={submitting}
+                      className="w-full p-5 text-base text-slate-800 placeholder:text-slate-400 leading-relaxed bg-white border border-slate-200 rounded-2xl outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 disabled:bg-slate-50/80 disabled:cursor-not-allowed disabled:text-slate-500 disabled:select-none"
                       placeholder="Today I managed to build... Mention specific hours, goal progress, or task blockers."
                     />
                   </div>
@@ -299,7 +339,7 @@ export default function Journal() {
                   <button
                     onClick={() => handleSave(entryText, "text")}
                     disabled={submitting || !entryText.trim()}
-                    className="primary-button px-6 py-3.5 text-sm font-bold shadow-md hover:shadow-indigo-200"
+                    className="primary-button px-6 py-3.5 text-sm font-bold shadow-md hover:shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Sparkles size={17} />
                     {submitting ? "Analyzing with Gemini..." : "Analyze Entry ✨"}
@@ -481,7 +521,7 @@ export default function Journal() {
 
           {/* RIGHT SIDEBAR COLUMN ("AI Journal History") MATCHING IMAGE 2 */}
           <div className="lg:col-span-5 xl:col-span-4 min-w-0">
-            <section className="sticky top-24 panel p-6 sm:p-7 shadow-sm bg-white border border-slate-200 rounded-3xl">
+            <section className="sticky top-24 panel p-6 sm:p-7 shadow-sm bg-white border border-slate-200 rounded-3xl overflow-hidden min-w-0">
               <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
                 <h2 className="text-lg font-bold text-slate-900">
                   AI Journal History ({journals.length})
@@ -510,7 +550,7 @@ export default function Journal() {
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-col gap-4 max-h-[720px] overflow-y-auto pr-1 animate-fade-in">
+                  <div ref={historyListRef} className="flex flex-col gap-4 max-h-[720px] overflow-y-auto pr-1 animate-fade-in">
                     {paginatedJournals.map((j) => {
                       const tags = getTagsForJournal(j);
                       const emoji = getEmojiForJournal(j);

@@ -5,13 +5,42 @@ cd /d "%~dp0"
 echo ======================================================================
 echo           AI Goal Journal ^& Accountability Coach Launcher
 echo ======================================================================
-:: Check for .env file
+:: 1. Check for Python
+where python >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo [X] Error: Python is not installed or not added to your PATH.
+    echo Please install Python 3.10+ from https://www.python.org/
+    pause
+    exit /b 1
+)
+
+:: 2. Check for Node.js / npm
+where npm >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo [X] Error: Node.js / npm is not installed or not added to your PATH.
+    echo Please install Node.js 18+ from https://nodejs.org/
+    pause
+    exit /b 1
+)
+
+:: 3. Check for .env file
 if not exist ".env" (
     echo [!] Warning: .env file not found.
     if exist ".env.example" (
-        echo [*] Creating .env from .env.example ...
+        echo [*] Creating .env from .env.example
         copy ".env.example" ".env" >nul
         echo [*] Created .env template. Please ensure your GEMINI_API_KEY is configured.
+    )
+)
+
+:: 4. Check for frontend node_modules
+if not exist "node_modules\" (
+    echo [*] Frontend dependencies not found. Installing node_modules...
+    call npm install
+    if errorlevel 1 (
+        echo [X] Error: npm install failed.
+        pause
+        exit /b 1
     )
 )
 

@@ -94,6 +94,10 @@ export const goalApi = {
     fetchWithAuth(`/goals/${id}`, {
       method: 'DELETE',
     }),
+  getFocusNext: async () => {
+    const res = await api.get('/goals/focus-next'); // or '/api/v1/goals/focus-next'
+    return res.data;
+  },
 };
 
 /**
