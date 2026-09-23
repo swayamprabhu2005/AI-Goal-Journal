@@ -38,8 +38,13 @@ try:
         pool_recycle=300 if DATABASE_URL.startswith("postgresql") else -1,
         connect_args=connect_args,
     )
+    if DATABASE_URL.startswith("postgresql"):
+        # Verify server is actually reachable (handles stopped local Docker containers)
+        with engine.connect() as probe_conn:
+            pass
 except Exception as e:
-    logger.warning("Failed to create engine with DATABASE_URL, falling back to SQLite: %s", e)
+    logger.warning("Configured database is unreachable (%s). Falling back to SQLite './app.db'", e)
+    DATABASE_URL = "sqlite:///./app.db"
     engine = create_engine(
         "sqlite:///./app.db",
         pool_pre_ping=True,
