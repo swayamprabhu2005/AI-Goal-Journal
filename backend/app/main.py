@@ -28,18 +28,17 @@ app = FastAPI(
     redirect_slashes=False,
 )
 
-# CORS middleware for React Vite frontend
+import os
+
+# CORS middleware for React Vite frontend (local and deployed on Vercel)
+cors_origins = list(settings.CORS_ORIGINS)
+if os.getenv("CORS_ORIGINS"):
+    cors_origins.extend([o.strip() for o in os.getenv("CORS_ORIGINS").split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
-    allow_origin_regex="http://.*",
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

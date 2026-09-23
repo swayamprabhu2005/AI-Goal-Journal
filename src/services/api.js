@@ -21,7 +21,10 @@ const DEFAULT_BACKEND_PORT = 8000;
  */
 function resolveApiBase() {
   const configured = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  if (configured) return configured.replace(/\/+$/, '');
+  if (configured) {
+    const stripped = configured.replace(/\/+$/, '');
+    return stripped.endsWith('/api/v1') ? stripped : `${stripped}/api/v1`;
+  }
 
   if (import.meta.env.DEV) return '/api/v1';
 

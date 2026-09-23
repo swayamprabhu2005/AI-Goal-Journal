@@ -1,9 +1,12 @@
 import os
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+
+logger = logging.getLogger(__name__)
 
 # Root directory: AI-GOAL-JOURNAL/
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -13,11 +16,16 @@ load_dotenv(ENV_FILE)
 
 DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./app.db"
 
+# Normalize postgres:// to postgresql:// for SQLAlchemy compatibility (Neon / Render)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # If PostgreSQL is requested, verify server is actually reachable; otherwise fallback to SQLite
 if DATABASE_URL.startswith("postgresql"):
     try:
         import psycopg2
-        test_conn = psycopg2.connect(DATABASE_URL, connect_timeout=1)
+        # Use 15 second timeout to allow serverless databases (NeonDB) to spin up from cold sleep
+        test_conn = psycopg2.connect(DATABASE_URL, connect_timeout=15)
         test_conn.close()
         connect_args = {}
     except Exception as exc:
@@ -31,6 +39,7 @@ try:
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,
+        pool_recycle=300 if DATABASE_URL.startswith("postgresql") else -1,
         connect_args=connect_args,
     )
 except Exception:
