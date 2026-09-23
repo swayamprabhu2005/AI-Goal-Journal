@@ -114,7 +114,7 @@ class FieldEncryptionService:
                 decrypted_bytes = self._aesgcm.decrypt(nonce, ct, None)
                 return decrypted_bytes.decode("utf-8")
             except Exception as primary_err:
-                # If primary key fails, try old rotation keys
+                logger.warning("Decryption with primary key failed: %s; attempting fallbacks...", primary_err)
                 for old_key in self._fallback_keys:
                     try:
                         old_aes = AESGCM(old_key)
@@ -122,12 +122,12 @@ class FieldEncryptionService:
                         return decrypted_bytes.decode("utf-8")
                     except Exception:
                         continue
-                logger.error("Failed to decrypt ciphertext with primary and fallback keys: %s", primary_err)
-                raise ValueError("Decryption failed: corrupted data or invalid encryption key") from primary_err
+                logger.warning("Failed to decrypt ciphertext with primary and fallback keys. Returning raw content as safe fallback.")
+                return ciphertext
 
         except Exception as e:
-            logger.error("Decryption error: %s", e)
-            raise ValueError(f"Decryption error: {e}") from e
+            logger.warning("Decryption error: %s. Returning raw ciphertext fallback.", e)
+            return ciphertext
 
     def is_encrypted(self, val: Optional[str]) -> bool:
         """Check if a string has been encrypted with the envelope prefix."""

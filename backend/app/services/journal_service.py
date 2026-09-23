@@ -18,10 +18,15 @@ class JournalService:
     def _decrypt_entry(self, entry: Optional[JournalEntry]) -> Optional[JournalEntry]:
         if not entry:
             return None
+        try:
+            content = crypto_service.decrypt(entry.content) or ""
+        except Exception as e:
+            logger.warning("Decryption fallback for journal entry %s: %s", entry.id, e)
+            content = entry.content or ""
         return JournalEntry(
             id=entry.id,
             user_id=entry.user_id,
-            content=crypto_service.decrypt(entry.content) or "",
+            content=content,
             source=entry.source,
             title=entry.title,
             ai_analysis=entry.ai_analysis,
