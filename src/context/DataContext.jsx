@@ -4,6 +4,8 @@ import { useAuth } from './AuthContext';
 
 import { notifyGoalCompleted } from '../components/GoalCelebration';
 
+const DataContext = createContext(null);
+
 function readLocal(key, fallback) {
   try {
     const raw = localStorage.getItem(`ai_journal_cache_${key}`);
