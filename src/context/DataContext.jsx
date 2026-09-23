@@ -31,7 +31,7 @@ function writeLocal(key, value) {
 }
 
 export function DataProvider({ children }) {
-  const { user } = useAuth();
+  const { user, checkingAuth } = useAuth();
 
   const [profile, setProfile] = useState(() => readLocal('profile', null));
   const [goals, setGoals] = useState(() => {
@@ -244,12 +244,29 @@ export function DataProvider({ children }) {
   // Load initial data when authenticated user arrives
   const userId = user?.uid;
   useEffect(() => {
+    // CRITICAL: Do NOT wipe cache while Firebase is initializing auth state!
+    if (checkingAuth) return;
+
     if (userId) {
       fetchAllData({ quiet: true });
     } else {
+      // User is confirmed logged out
       clearCache();
     }
-  }, [userId, fetchAllData, clearCache]);
+  }, [userId, checkingAuth, fetchAllData, clearCache]);
+
+  // Keep Render awake while any user is active in the web app (heartbeat every 4 minutes)
+  useEffect(() => {
+    const pingServer = () => {
+      fetch('https://ai-goal-journal-backend.onrender.com/api/v1/health', {
+        mode: 'cors',
+      }).catch(() => {});
+    };
+
+    // Ping every 4 minutes (Render idles after 15m)
+    const intervalId = setInterval(pingServer, 240000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   // --- Cache Mutation Helpers ---
   const addGoal = useCallback((newGoal) => {

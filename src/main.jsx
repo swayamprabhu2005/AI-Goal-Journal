@@ -8,6 +8,9 @@ import { DataProvider } from './context/DataContext.jsx';
 import { ModalProvider } from './context/ModalContext.jsx';
 import './index.css';
 
+// Pre-flight wake-up ping for cloud backend cold starts (non-blocking)
+fetch('https://ai-goal-journal-backend.onrender.com/api/v1/health', { mode: 'cors' }).catch(() => {});
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>

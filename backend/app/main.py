@@ -13,6 +13,22 @@ from app.api.v1.calendar import router as calendar_router
 from app.api.v1.roadmap import router as roadmap_router
 from app.api.v1.coach import router as coach_router
 
+import asyncio
+import os
+import httpx
+
+async def _render_keep_alive():
+    """Background task to keep Render free tier alive by pinging public health endpoint every 9 minutes."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            backend_url = os.getenv("BACKEND_PUBLIC_URL", "https://ai-goal-journal-backend.onrender.com").rstrip("/")
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                await client.get(f"{backend_url}/api/v1/health")
+        except Exception:
+            pass
+        await asyncio.sleep(540)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Lightweight lifespan: models are lazy-loaded on demand to preserve 512MB RAM on cloud hosts
@@ -21,7 +37,12 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception as e:
         print(f"Lifespan DB init note: {e}")
-    yield
+
+    keep_alive_fut = asyncio.create_task(_render_keep_alive())
+    try:
+        yield
+    finally:
+        keep_alive_fut.cancel()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
