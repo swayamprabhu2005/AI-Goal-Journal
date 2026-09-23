@@ -126,9 +126,9 @@ Guidelines:
 
         messages.append({"role": "user", "content": message})
 
-        primary_model = settings.GROQ_MODEL or "openai/gpt-oss-120b"
+        primary_model = settings.GROQ_MODEL if settings.GROQ_MODEL and "gpt" not in settings.GROQ_MODEL else "llama-3.3-70b-versatile"
         candidate_models = [primary_model]
-        for fallback in ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]:
+        for fallback in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]:
             if fallback not in candidate_models:
                 candidate_models.append(fallback)
 
@@ -142,23 +142,45 @@ Guidelines:
                     max_tokens=800,
                 )
                 reply_text = completion.choices[0].message.content or ""
-                return {
-                    "reply": reply_text.strip(),
-                    "model": model,
-                    "usage": {
-                        "prompt_tokens": getattr(completion.usage, "prompt_tokens", None),
-                        "completion_tokens": getattr(completion.usage, "completion_tokens", None),
-                    },
-                }
+                if reply_text.strip():
+                    return {
+                        "reply": reply_text.strip(),
+                        "model": model,
+                        "usage": {
+                            "prompt_tokens": getattr(completion.usage, "prompt_tokens", None),
+                            "completion_tokens": getattr(completion.usage, "completion_tokens", None),
+                        },
+                    }
             except Exception as e:
                 last_error = e
                 logger.warning("Groq model %s attempt failed: %s", model, e)
                 continue
 
-        logger.error("All Groq models failed: %s", last_error)
+        logger.warning("All Groq models failed (%s). Attempting Gemini AI fallback...", last_error)
+
+        # Resilient fallback to Gemini API
+        try:
+            gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
+            if gemini_key:
+                from google import genai
+                gclient = genai.Client(api_key=gemini_key)
+                gemini_model = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
+                full_prompt = f"{system_prompt}\n\nUser Question:\n{message}"
+                g_resp = gclient.models.generate_content(
+                    model=gemini_model,
+                    contents=full_prompt,
+                )
+                if g_resp and g_resp.text:
+                    return {
+                        "reply": g_resp.text.strip(),
+                        "model": f"gemini/{gemini_model}",
+                    }
+        except Exception as gemini_err:
+            logger.error("Gemini coaching fallback also failed: %s", gemini_err)
+
         return {
-            "reply": f"I ran into an issue connecting to the coaching service ({str(last_error)[:120]}). Remember that taking one small step toward your goals today still counts!",
-            "model": primary_model,
+            "reply": "I am here with you. While I reconnect to the primary coaching servers, take one small, focused 10-minute action on your next milestone. How can I best support you right now?",
+            "model": "offline-resilient-coach",
             "error": str(last_error),
         }
 

@@ -32,7 +32,8 @@ export default function Insights() {
     setGenerating(true);
     setError("");
     try {
-      const fresh = await summaryApi.generateSummary();
+      const generateFn = summaryApi.generateSummary || summaryApi.generateWeeklySummary;
+      const fresh = await generateFn();
       setSummaryInCache(fresh);
     } catch (err) {
       console.error("Generate summary error:", err);

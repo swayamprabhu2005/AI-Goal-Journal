@@ -80,12 +80,14 @@ class GoalService:
         if val >= 100:
             goal.status = "Completed"
             goal.estimated_days_remaining = 0
-            goal.priority = "Low Priority"
+            if not goal.priority:
+                goal.priority = "Low Priority"
             return goal
 
         if goal.status == "Completed":
             goal.estimated_days_remaining = 0
-            goal.priority = "Low Priority"
+            if not goal.priority:
+                goal.priority = "Low Priority"
             return goal
 
         # Active or Stalled goal velocity calculation
@@ -98,8 +100,9 @@ class GoalService:
         remaining_percentage = max(0, 100 - val)
         goal.estimated_days_remaining = math.ceil(remaining_percentage / velocity)
 
-        # Smart Goal Prioritization
-        goal.priority = self.calculate_goal_priority(goal)
+        # Smart Goal Prioritization: preserve manual priority if set, otherwise auto-calculate
+        if not goal.priority:
+            goal.priority = self.calculate_goal_priority(goal)
         return goal
 
     def list_goals(self, user_id: str, status: Optional[str] = None) -> list[Goal]:

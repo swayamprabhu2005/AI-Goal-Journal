@@ -426,7 +426,7 @@ export default function Goals() {
         )}
 
         {/* Goals Grid Cards Rendering */}
-        {loading || !hasLoadedGoals ? (
+        {(loading && goals.length === 0) || (!hasLoadedGoals && goals.length === 0) ? (
           <GoalLoadingState />
         ) : filteredGoals.length === 0 ? (
           <section className="panel px-6 py-16 text-center shadow-sm">

@@ -75,28 +75,45 @@ export async function fetchWithAuth(url, options = {}) {
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-  });
+  // Timeout guard: 60s for AI extraction/coach, 15s for standard CRUD
+  const isAiRoute = url.includes('/journals') || url.includes('/coach') || url.includes('/summaries');
+  const timeoutMs = options.timeout || (isAiRoute ? 60000 : 15000);
 
-  if (!response.ok) {
-    let errorDetail = 'API request failed';
-    try {
-      const errJson = await response.json();
-      errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
-    } catch {
-      errorDetail = `${response.status} ${response.statusText}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${API_BASE}${url}`, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
+
+    if (!response.ok) {
+      let errorDetail = 'API request failed';
+      try {
+        const errJson = await response.json();
+        errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorDetail = `${response.status} ${response.statusText}`;
+      }
+      throw new Error(errorDetail);
     }
-    throw new Error(errorDetail);
-  }
 
-  // If No Content (204)
-  if (response.status === 204) {
-    return null;
-  }
+    // If No Content (204)
+    if (response.status === 204) {
+      return null;
+    }
 
-  return response.json();
+    return response.json();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000}s. Please check backend status.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
@@ -241,6 +258,10 @@ export const journalApi = {
 export const summaryApi = {
   getWeeklySummary: () => fetchWithAuth('/summaries/weekly'),
   generateWeeklySummary: () =>
+    fetchWithAuth('/summaries/weekly', {
+      method: 'POST',
+    }),
+  generateSummary: () =>
     fetchWithAuth('/summaries/weekly', {
       method: 'POST',
     }),

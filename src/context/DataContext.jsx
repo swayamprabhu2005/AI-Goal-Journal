@@ -4,24 +4,56 @@ import { useAuth } from './AuthContext';
 
 import { notifyGoalCompleted } from '../components/GoalCelebration';
 
-const DataContext = createContext(null);
+function readLocal(key, fallback) {
+  try {
+    const raw = localStorage.getItem(`ai_journal_cache_${key}`);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocal(key, value) {
+  try {
+    if (value === null || value === undefined) {
+      localStorage.removeItem(`ai_journal_cache_${key}`);
+    } else {
+      localStorage.setItem(`ai_journal_cache_${key}`, JSON.stringify(value));
+    }
+  } catch {}
+}
 
 export function DataProvider({ children }) {
   const { user } = useAuth();
 
-  const [profile, setProfile] = useState(null);
-  const [goals, setGoals] = useState([]);
-  const [journals, setJournals] = useState([]);
-  const [habits, setHabits] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const [profile, setProfile] = useState(() => readLocal('profile', null));
+  const [goals, setGoals] = useState(() => readLocal('goals', []));
+  const [journals, setJournals] = useState(() => readLocal('journals', []));
+  const [habits, setHabits] = useState(() => readLocal('habits', []));
+  const [summary, setSummary] = useState(() => readLocal('summary', null));
   const [recentlyCompletedGoal, setRecentlyCompletedGoal] = useState(null);
 
-  const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
-  const [hasLoadedGoals, setHasLoadedGoals] = useState(false);
-  const [hasLoadedJournals, setHasLoadedJournals] = useState(false);
-  const [hasLoadedHabits, setHasLoadedHabits] = useState(false);
-  const [hasLoadedSummary, setHasLoadedSummary] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const initialGoals = readLocal('goals', []);
+  const initialHabits = readLocal('habits', []);
+  const hasCachedData = initialGoals.length > 0 || initialHabits.length > 0;
+
+  const [hasLoadedProfile, setHasLoadedProfile] = useState(() => !!readLocal('profile', null));
+  const [hasLoadedGoals, setHasLoadedGoals] = useState(() => hasCachedData);
+  const [hasLoadedJournals, setHasLoadedJournals] = useState(() => hasCachedData);
+  const [hasLoadedHabits, setHasLoadedHabits] = useState(() => hasCachedData);
+  const [hasLoadedSummary, setHasLoadedSummary] = useState(() => !!readLocal('summary', null));
+  const [initialLoading, setInitialLoading] = useState(() => !hasCachedData);
+
+  // Safety guard: guarantee loading indicators unblock in max 2.5s even on cold network
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialLoading(false);
+      setHasLoadedGoals(true);
+      setHasLoadedHabits(true);
+      setHasLoadedJournals(true);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Clear data cache on logout
   const clearCache = useCallback(() => {
@@ -37,6 +69,11 @@ export function DataProvider({ children }) {
     setHasLoadedHabits(false);
     setHasLoadedSummary(false);
     setInitialLoading(false);
+    writeLocal('profile', null);
+    writeLocal('goals', null);
+    writeLocal('journals', null);
+    writeLocal('habits', null);
+    writeLocal('summary', null);
   }, []);
 
   const triggerGoalCompletion = useCallback((goal) => {
@@ -132,21 +169,25 @@ export function DataProvider({ children }) {
 
       if (profileRes.status === 'fulfilled' && profileRes.value) {
         setProfile(profileRes.value);
+        writeLocal('profile', profileRes.value);
       }
       setHasLoadedProfile(true);
 
       if (goalsRes.status === 'fulfilled' && goalsRes.value) {
         setGoals(goalsRes.value || []);
+        writeLocal('goals', goalsRes.value || []);
       }
       setHasLoadedGoals(true);
 
       if (journalsRes.status === 'fulfilled' && journalsRes.value) {
         setJournals(journalsRes.value || []);
+        writeLocal('journals', journalsRes.value || []);
       }
       setHasLoadedJournals(true);
 
       if (habitsRes.status === 'fulfilled' && habitsRes.value) {
         setHabits(habitsRes.value || []);
+        writeLocal('habits', habitsRes.value || []);
       }
       setHasLoadedHabits(true);
 
@@ -159,6 +200,7 @@ export function DataProvider({ children }) {
         .then((summaryData) => {
           if (summaryData) {
             setSummary(summaryData);
+            writeLocal('summary', summaryData);
             setHasLoadedSummary(true);
           }
         })
@@ -185,48 +227,86 @@ export function DataProvider({ children }) {
 
   // --- Cache Mutation Helpers ---
   const addGoal = useCallback((newGoal) => {
-    setGoals((prev) => [newGoal, ...prev]);
+    setGoals((prev) => {
+      const updated = [newGoal, ...prev];
+      writeLocal('goals', updated);
+      return updated;
+    });
   }, []);
 
   const updateGoalInCache = useCallback((updatedGoal) => {
-    setGoals((prev) => prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g)));
+    setGoals((prev) => {
+      const updated = prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g));
+      writeLocal('goals', updated);
+      return updated;
+    });
   }, []);
 
   const deleteGoalFromCache = useCallback((goalId) => {
-    setGoals((prev) => prev.filter((g) => g.id !== goalId));
+    setGoals((prev) => {
+      const updated = prev.filter((g) => g.id !== goalId);
+      writeLocal('goals', updated);
+      return updated;
+    });
   }, []);
 
   const addJournal = useCallback((newJournal) => {
-    setJournals((prev) => [newJournal, ...prev]);
+    setJournals((prev) => {
+      const updated = [newJournal, ...prev];
+      writeLocal('journals', updated);
+      return updated;
+    });
   }, []);
 
   const updateJournalInCache = useCallback((updatedJournal) => {
-    setJournals((prev) => prev.map((j) => (j.id === updatedJournal.id ? updatedJournal : j)));
+    setJournals((prev) => {
+      const updated = prev.map((j) => (j.id === updatedJournal.id ? updatedJournal : j));
+      writeLocal('journals', updated);
+      return updated;
+    });
   }, []);
 
   const deleteJournalFromCache = useCallback((journalId) => {
-    setJournals((prev) => prev.filter((j) => j.id !== journalId));
+    setJournals((prev) => {
+      const updated = prev.filter((j) => j.id !== journalId);
+      writeLocal('journals', updated);
+      return updated;
+    });
   }, []);
 
   const updateProfileInCache = useCallback((updatedProfile) => {
     setProfile(updatedProfile);
+    writeLocal('profile', updatedProfile);
   }, []);
 
   const setSummaryInCache = useCallback((newSummary) => {
     setSummary(newSummary);
+    writeLocal('summary', newSummary);
     setHasLoadedSummary(true);
   }, []);
 
   const addHabitInCache = useCallback((newHabit) => {
-    setHabits((prev) => [newHabit, ...prev]);
+    setHabits((prev) => {
+      const updated = [newHabit, ...prev];
+      writeLocal('habits', updated);
+      return updated;
+    });
   }, []);
 
   const updateHabitInCache = useCallback((updatedHabit) => {
-    setHabits((prev) => prev.map((h) => (h.id === updatedHabit.id ? updatedHabit : h)));
+    setHabits((prev) => {
+      const updated = prev.map((h) => (h.id === updatedHabit.id ? updatedHabit : h));
+      writeLocal('habits', updated);
+      return updated;
+    });
   }, []);
 
   const deleteHabitFromCache = useCallback((habitId) => {
-    setHabits((prev) => prev.filter((h) => h.id !== habitId));
+    setHabits((prev) => {
+      const updated = prev.filter((h) => h.id !== habitId);
+      writeLocal('habits', updated);
+      return updated;
+    });
   }, []);
 
   return (
