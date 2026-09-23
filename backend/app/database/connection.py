@@ -22,16 +22,33 @@ if DATABASE_URL.startswith("postgres://"):
 
 # If PostgreSQL is requested, verify server is actually reachable; otherwise fallback to SQLite
 if DATABASE_URL.startswith("postgresql"):
-    try:
-        import psycopg2
-        # Use 15 second timeout to allow serverless databases (NeonDB) to spin up from cold sleep
-        test_conn = psycopg2.connect(DATABASE_URL, connect_timeout=15)
-        test_conn.close()
-        connect_args = {}
-    except Exception as exc:
-        print(f"[DB] PostgreSQL unreachable ({exc}). Falling back to local SQLite database.")
+    if "neon.tech" in DATABASE_URL and "sslmode" not in DATABASE_URL:
+        sep = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
+
+    import time
+    connected = False
+    last_exc = None
+    for attempt in range(1, 4):
+        try:
+            import psycopg2
+            # Allow serverless databases (NeonDB) to spin up from cold sleep (30s)
+            test_conn = psycopg2.connect(DATABASE_URL, connect_timeout=30)
+            test_conn.close()
+            connected = True
+            print(f"[DB] PostgreSQL connected successfully on attempt {attempt}.")
+            break
+        except Exception as exc:
+            last_exc = exc
+            print(f"[DB] PostgreSQL connect attempt {attempt}/3 failed ({exc}). Retrying in 2s...")
+            time.sleep(2)
+
+    if not connected:
+        print(f"[DB] All PostgreSQL connection attempts failed ({last_exc}). Falling back to local SQLite database.")
         DATABASE_URL = "sqlite:///./app.db"
         connect_args = {"check_same_thread": False}
+    else:
+        connect_args = {"connect_timeout": 30}
 else:
     connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 

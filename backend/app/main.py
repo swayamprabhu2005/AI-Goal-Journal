@@ -52,13 +52,19 @@ def root():
 
 @app.get("/api/v1/health")
 def health_check():
+    from app.database.connection import engine
+    db_dialect = engine.dialect.name
+    masked_target = "sqlite-local"
+    if hasattr(engine.url, "host") and engine.url.host:
+        masked_target = f"{engine.url.host}/{engine.url.database}"
     return {
         "status": "healthy",
         "service": "AI Goal Journal API",
         "whisper_model": settings.WHISPER_MODEL,
         "whisper_device": settings.WHISPER_DEVICE,
         "gemini_model": settings.GEMINI_MODEL,
-        "persistence": "in-memory",
+        "database_type": db_dialect,
+        "database_target": masked_target,
     }
 
 # Mount v1 routers

@@ -1182,9 +1182,16 @@ class PostgresHabitRepository(AbstractHabitRepository):
             )
 
             if internal_user_id is None:
-                raise LookupError(
-                    "Authenticated user does not exist in PostgreSQL"
+                email_val = habit.user_id if "@" in habit.user_id else f"{habit.user_id}@example.com"
+                user_row = UserORM(
+                    firebase_uid=habit.user_id,
+                    email=email_val,
+                    display_name=habit.user_id.split("@")[0],
                 )
+                db.add(user_row)
+                db.commit()
+                db.refresh(user_row)
+                internal_user_id = user_row.id
 
             row = HabitORM(
                 user_id=internal_user_id,

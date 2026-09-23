@@ -80,9 +80,9 @@ export async function fetchWithAuth(url, options = {}) {
     ...options.headers,
   };
 
-  // Timeout guard: 60s for AI extraction/coach, 15s for standard CRUD
+  // Timeout guard: 120s for AI extraction/coach, 45s for standard CRUD (handles cloud server sleep/cold boots)
   const isAiRoute = url.includes('/journals') || url.includes('/coach') || url.includes('/summaries');
-  const timeoutMs = options.timeout || (isAiRoute ? 60000 : 15000);
+  const timeoutMs = options.timeout || (isAiRoute ? 120000 : 45000);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -113,7 +113,7 @@ export async function fetchWithAuth(url, options = {}) {
     return response.json();
   } catch (err) {
     if (err.name === 'AbortError') {
-      throw new Error(`Request timed out after ${timeoutMs / 1000}s. Please check backend status.`);
+      throw new Error(`Server is taking longer to respond (cold start). Please retry in a few seconds.`);
     }
     throw err;
   } finally {
