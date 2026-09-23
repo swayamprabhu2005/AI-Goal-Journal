@@ -79,12 +79,14 @@ class GoalService:
         val = goal.progress_value or 0
         if val >= 100:
             goal.status = "Completed"
+            goal.progress_value = 100
             goal.estimated_days_remaining = 0
             if not goal.priority:
                 goal.priority = "Low Priority"
             return goal
 
         if goal.status == "Completed":
+            goal.progress_value = 100
             goal.estimated_days_remaining = 0
             if not goal.priority:
                 goal.priority = "Low Priority"
@@ -173,6 +175,22 @@ class GoalService:
                 )
             except Exception as e:
                 logger.warning("Could not auto-create completed progress entry: %s", e)
+        elif data.progress_value is not None:
+            note = data.latest_progress_note or f"Progress updated to {data.progress_value}%"
+            updates["latest_progress_note"] = note
+            try:
+                from app.repositories.postgres import progress_repo
+                progress_repo.create(
+                    Progress(
+                        id=str(uuid.uuid4()),
+                        goal_id=goal_id,
+                        progress_value=data.progress_value,
+                        note=note,
+                        created_at=datetime.utcnow(),
+                    )
+                )
+            except Exception as e:
+                logger.warning("Could not auto-create progress entry: %s", e)
 
         updated = goal_repo.update(user_id=user_id, goal_id=goal_id, **updates)
         return self._enrich_goal(updated)

@@ -12,11 +12,20 @@ import {
 import { calendarApi } from "../services/api";
 import GoogleCalendarSetupModal from "./GoogleCalendarSetupModal";
 
-let cachedCalendarStatus = null;
+const CALENDAR_CACHE_KEY = "ai_journal_cache_calendar_status";
+
+function getCachedCalendarStatus() {
+  try {
+    const raw = localStorage.getItem(CALENDAR_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function GoogleCalendarBanner({ onStatusChange, className = "" }) {
-  const [status, setStatus] = useState(cachedCalendarStatus);
-  const [loading, setLoading] = useState(!cachedCalendarStatus);
+  const [status, setStatus] = useState(() => getCachedCalendarStatus() || { connected: false, is_configured: false });
+  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [showSetupModal, setShowSetupModal] = useState(false);
@@ -27,17 +36,20 @@ export default function GoogleCalendarBanner({ onStatusChange, className = "" })
 
   async function fetchStatus() {
     try {
-      if (!cachedCalendarStatus) setLoading(true);
       setError("");
-      const res = await calendarApi.getStatus();
-      cachedCalendarStatus = res;
-      setStatus(res);
-      if (onStatusChange) onStatusChange(res);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 3000)
+      );
+      const res = await Promise.race([calendarApi.getStatus(), timeoutPromise]);
+      if (res) {
+        setStatus(res);
+        try {
+          localStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(res));
+        } catch {}
+        if (onStatusChange) onStatusChange(res);
+      }
     } catch (err) {
-      console.error("Error fetching Google Calendar status:", err);
-      const fallback = { connected: false, is_configured: false };
-      cachedCalendarStatus = fallback;
-      setStatus(fallback);
+      console.warn("Google Calendar status fetch skipped/fallback:", err?.message);
     } finally {
       setLoading(false);
     }
@@ -68,6 +80,9 @@ export default function GoogleCalendarBanner({ onStatusChange, className = "" })
       setActionLoading(true);
       setError("");
       await calendarApi.disconnect();
+      try {
+        localStorage.removeItem(CALENDAR_CACHE_KEY);
+      } catch {}
       await fetchStatus();
     } catch (err) {
       console.error("Failed to disconnect Google Calendar:", err);

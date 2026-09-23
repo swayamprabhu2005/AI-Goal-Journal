@@ -62,12 +62,35 @@ function StatCard({ icon: Icon, iconClass, value, label }) {
   );
 }
 
+const HABIT_STATUS_CACHE_KEY = "ai_journal_cache_habit_status";
+const HABIT_COMPLETIONS_CACHE_KEY = "ai_journal_cache_habit_completions";
+
+function getCachedHabitStatus() {
+  try {
+    const raw = localStorage.getItem(HABIT_STATUS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getCachedHabitCompletions() {
+  try {
+    const raw = localStorage.getItem(HABIT_COMPLETIONS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function Habits() {
   const { habits: contextHabits, hasLoadedHabits, setHabitsInCache } = useData();
   const safeContextHabits = Array.isArray(contextHabits) ? contextHabits : [];
   const [habits, setHabits] = useState(safeContextHabits);
-  const [completions, setCompletions] = useState({});
-  const [statusMap, setStatusMap] = useState({});
+  const [completions, setCompletions] = useState(getCachedHabitCompletions);
+  const [statusMap, setStatusMap] = useState(getCachedHabitStatus);
+
+  const today = todayISO();
 
   // Page async state
   const [loading, setLoading] = useState(!hasLoadedHabits && safeContextHabits.length === 0);
@@ -106,31 +129,48 @@ export default function Habits() {
   const stats = useMemo(() => {
     const totalHabits = habits.length;
     const dueToday = habits.filter((h) => h.frequency !== "weekly").length;
-    const doneToday = habits.filter(
-      (h) => h.frequency !== "weekly" && statusMap[h.id]?.completed_today
-    ).length;
+    const doneToday = habits.filter((h) => {
+      const s = statusMap[h.id] || statusMap[String(h.id)];
+      const c = completions[h.id] || completions[String(h.id)] || [];
+      return h.frequency !== "weekly" && (s?.completed_today || c.includes(today));
+    }).length;
 
     let activeStreaks = 0;
     let bestStreak = 0;
     habits.forEach((h) => {
-      if ((statusMap[h.id]?.current_streak ?? 0) > 0) activeStreaks += 1;
-      bestStreak = Math.max(bestStreak, calculateBestStreak(completions[h.id] || []));
+      const s = statusMap[h.id] || statusMap[String(h.id)];
+      const c = completions[h.id] || completions[String(h.id)] || [];
+      if ((s?.current_streak ?? 0) > 0) activeStreaks += 1;
+      bestStreak = Math.max(bestStreak, calculateBestStreak(c));
     });
 
     return { totalHabits, dueToday, doneToday, activeStreaks, bestStreak };
-  }, [habits, statusMap, completions]);
+  }, [habits, statusMap, completions, today]);
 
   /**
    * Refresh backend status (completed_today/current_streak) and completion
-   * logs for a single habit and update both frontend maps.
+   * logs for a single habit and update both frontend maps and cache.
    */
   async function refreshHabitData(habitId) {
     const [status, logs] = await Promise.all([
       habitApi.getHabitStatus(habitId).catch(() => null),
       habitApi.getHabitLogs(habitId).catch(() => null),
     ]);
-    if (status) setStatusMap((m) => ({ ...m, [habitId]: status }));
-    if (logs) setCompletions((m) => ({ ...m, [habitId]: logsToDates(logs) }));
+    if (status) {
+      setStatusMap((m) => {
+        const next = { ...m, [habitId]: status, [String(habitId)]: status };
+        try { localStorage.setItem(HABIT_STATUS_CACHE_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+    if (logs) {
+      setCompletions((m) => {
+        const dates = logsToDates(logs);
+        const next = { ...m, [habitId]: dates, [String(habitId)]: dates };
+        try { localStorage.setItem(HABIT_COMPLETIONS_CACHE_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
   }
 
   // Initial load: parse enriched habits or fetch from API
@@ -178,8 +218,16 @@ export default function Habits() {
         }
 
         if (isMounted) {
-          setStatusMap(nextStatus);
-          setCompletions(nextCompletions);
+          setStatusMap((prev) => {
+            const merged = { ...prev, ...nextStatus };
+            try { localStorage.setItem(HABIT_STATUS_CACHE_KEY, JSON.stringify(merged)); } catch {}
+            return merged;
+          });
+          setCompletions((prev) => {
+            const merged = { ...prev, ...nextCompletions };
+            try { localStorage.setItem(HABIT_COMPLETIONS_CACHE_KEY, JSON.stringify(merged)); } catch {}
+            return merged;
+          });
         }
       } catch (err) {
         if (err?.name === "AbortError" || err?.message?.includes("aborted")) {
@@ -270,11 +318,15 @@ export default function Habits() {
       setCompletions((prev) => {
         const next = { ...prev };
         delete next[deletingHabit.id];
+        delete next[String(deletingHabit.id)];
+        try { localStorage.setItem(HABIT_COMPLETIONS_CACHE_KEY, JSON.stringify(next)); } catch {}
         return next;
       });
       setStatusMap((prev) => {
         const next = { ...prev };
         delete next[deletingHabit.id];
+        delete next[String(deletingHabit.id)];
+        try { localStorage.setItem(HABIT_STATUS_CACHE_KEY, JSON.stringify(next)); } catch {}
         return next;
       });
       setDeletingHabit(null);
@@ -304,26 +356,36 @@ export default function Habits() {
     // 1. Optimistic UI update: immediately flip state so user sees instant checkmark
     const isTargetToday = date === today;
     setCompletions((prev) => {
-      const existing = prev[habitId] || [];
+      const existing = prev[habitId] || prev[String(habitId)] || [];
       const updated = isCompleting
         ? [...new Set([...existing, date])]
         : existing.filter((d) => d !== date);
-      return { ...prev, [habitId]: updated };
+      const next = {
+        ...prev,
+        [habitId]: updated,
+        [String(habitId)]: updated,
+      };
+      try { localStorage.setItem(HABIT_COMPLETIONS_CACHE_KEY, JSON.stringify(next)); } catch {}
+      return next;
     });
 
     if (isTargetToday) {
       setStatusMap((prev) => {
-        const curr = prev[habitId] || { current_streak: 0 };
-        return {
-          ...prev,
-          [habitId]: {
-            ...curr,
-            completed_today: isCompleting,
-            current_streak: isCompleting
-              ? (curr.current_streak || 0) + 1
-              : Math.max(0, (curr.current_streak || 1) - 1),
-          },
+        const curr = prev[habitId] || prev[String(habitId)] || { current_streak: 0 };
+        const newStatus = {
+          ...curr,
+          completed_today: isCompleting,
+          current_streak: isCompleting
+            ? (curr.current_streak || 0) + 1
+            : Math.max(0, (curr.current_streak || 1) - 1),
         };
+        const next = {
+          ...prev,
+          [habitId]: newStatus,
+          [String(habitId)]: newStatus,
+        };
+        try { localStorage.setItem(HABIT_STATUS_CACHE_KEY, JSON.stringify(next)); } catch {}
+        return next;
       });
     }
 
@@ -354,8 +416,6 @@ export default function Habits() {
       });
     }
   }
-
-  const today = todayISO();
 
   // Gentle float for the empty-state icon while no habits exist.
   useEffect(() => {
@@ -486,8 +546,8 @@ export default function Habits() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           {habits.map((habit) => {
-            const dates = completions[habit.id] || [];
-            const status = statusMap[habit.id];
+            const dates = completions[habit.id] || completions[String(habit.id)] || [];
+            const status = statusMap[habit.id] || statusMap[String(habit.id)];
             const currentStreak = status?.current_streak ?? 0;
             const bestStreak = calculateBestStreak(dates);
             const doneToday = status?.completed_today ?? dates.includes(today);

@@ -187,7 +187,7 @@ export default function Goals() {
   }
 
   async function handleQuickStatusChange(goalId, newStatus) {
-    const targetGoal = goals.find((g) => g.id === goalId);
+    const targetGoal = goals.find((g) => String(g.id) === String(goalId));
     const wasAlreadyCompleted = targetGoal && targetGoal.status === "Completed";
     const isNewlyCompleted = newStatus === "Completed" && !wasAlreadyCompleted;
 
@@ -463,17 +463,36 @@ export default function Goals() {
                     <div>
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                              goal.status === "Completed"
-                                ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                                : goal.status === "Stalled"
-                                ? "bg-red-50 text-red-600 border border-red-200"
-                                : "bg-[#E2E9DF] text-[#3A492E] border border-[#E2E9DF]"
-                            }`}
-                          >
-                            {goal.status === "Active" ? "On Track" : goal.status}
-                          </span>
+                          {goal.status === "Completed" ? (
+                            <button
+                              onClick={() => handleQuickStatusChange(goal.id, "Active")}
+                              className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+                              title="Click to reopen goal"
+                            >
+                              <CheckCircle2 size={11} className="text-emerald-600" />
+                              Completed
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                  goal.status === "Stalled"
+                                    ? "bg-red-50 text-red-600 border border-red-200"
+                                    : "bg-[#E2E9DF] text-[#3A492E] border border-[#E2E9DF]"
+                                }`}
+                              >
+                                {goal.status === "Active" ? "On Track" : goal.status}
+                              </span>
+                              <button
+                                onClick={() => handleQuickStatusChange(goal.id, "Completed")}
+                                className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 transition"
+                                title="Mark as Completed (100%)"
+                              >
+                                <CheckCircle2 size={11} className="text-slate-400 group-hover:text-emerald-600" />
+                                Complete
+                              </button>
+                            </div>
+                          )}
 
                           {/* Smart Priority Badge */}
                           {goal.priority && goal.status !== "Completed" && (

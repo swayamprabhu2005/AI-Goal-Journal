@@ -279,7 +279,7 @@ export function DataProvider({ children }) {
 
   const updateGoalInCache = useCallback((updatedGoal) => {
     setGoals((prev) => {
-      const updated = prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g));
+      const updated = prev.map((g) => (String(g.id) === String(updatedGoal.id) ? updatedGoal : g));
       writeLocal('goals', updated);
       return updated;
     });
@@ -287,7 +287,7 @@ export function DataProvider({ children }) {
 
   const deleteGoalFromCache = useCallback((goalId) => {
     setGoals((prev) => {
-      const updated = prev.filter((g) => g.id !== goalId);
+      const updated = prev.filter((g) => String(g.id) !== String(goalId));
       writeLocal('goals', updated);
       return updated;
     });
@@ -303,7 +303,7 @@ export function DataProvider({ children }) {
 
   const updateJournalInCache = useCallback((updatedJournal) => {
     setJournals((prev) => {
-      const updated = prev.map((j) => (j.id === updatedJournal.id ? updatedJournal : j));
+      const updated = prev.map((j) => (String(j.id) === String(updatedJournal.id) ? updatedJournal : j));
       writeLocal('journals', updated);
       return updated;
     });
@@ -311,7 +311,7 @@ export function DataProvider({ children }) {
 
   const deleteJournalFromCache = useCallback((journalId) => {
     setJournals((prev) => {
-      const updated = prev.filter((j) => j.id !== journalId);
+      const updated = prev.filter((j) => String(j.id) !== String(journalId));
       writeLocal('journals', updated);
       return updated;
     });
@@ -338,7 +338,7 @@ export function DataProvider({ children }) {
 
   const updateHabitInCache = useCallback((updatedHabit) => {
     setHabits((prev) => {
-      const updated = prev.map((h) => (h.id === updatedHabit.id ? updatedHabit : h));
+      const updated = prev.map((h) => (String(h.id) === String(updatedHabit.id) ? updatedHabit : h));
       writeLocal('habits', updated);
       return updated;
     });
@@ -346,7 +346,7 @@ export function DataProvider({ children }) {
 
   const deleteHabitFromCache = useCallback((habitId) => {
     setHabits((prev) => {
-      const updated = prev.filter((h) => h.id !== habitId);
+      const updated = prev.filter((h) => String(h.id) !== String(habitId));
       writeLocal('habits', updated);
       return updated;
     });
