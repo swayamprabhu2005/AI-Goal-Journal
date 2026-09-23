@@ -148,23 +148,38 @@ function useEpicConfetti(canvasRef, visible) {
   }, [visible]);
 }
 
-export default function GoalCelebration({ goal, onClose }) {
+export default function GoalCelebration({ goal, completedGoal, onClose, onDismiss }) {
+  const activeGoal = goal || completedGoal;
   const [visible, setVisible] = useState(false);
+  const [currentGoal, setCurrentGoal] = useState(activeGoal);
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    if (goal) {
+    if (activeGoal) {
+      setCurrentGoal(activeGoal);
       setVisible(true);
     }
-  }, [goal]);
+  }, [activeGoal]);
+
+  useEffect(() => {
+    const handleGoalEvent = (e) => {
+      if (e.detail?.goal) {
+        setCurrentGoal(e.detail.goal);
+        setVisible(true);
+      }
+    };
+    window.addEventListener('goal:completed', handleGoalEvent);
+    return () => window.removeEventListener('goal:completed', handleGoalEvent);
+  }, []);
 
   useEpicConfetti(canvasRef, visible);
 
-  if (!goal || !visible) return null;
+  if (!currentGoal || !visible) return null;
 
   const handleClose = () => {
     setVisible(false);
     if (onClose) onClose();
+    if (onDismiss) onDismiss();
   };
 
   return (
@@ -216,10 +231,10 @@ export default function GoalCelebration({ goal, onClose }) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                {goal.category || 'Milestone'}
+                {currentGoal.category || 'Milestone'}
               </span>
               <h4 className="mt-1.5 text-base font-bold text-slate-900 leading-snug">
-                {goal.title}
+                {currentGoal.title}
               </h4>
             </div>
             <span className="shrink-0 rounded-full bg-emerald-600 text-white font-bold text-xs px-2.5 py-1 shadow-sm flex items-center gap-1">
@@ -227,9 +242,9 @@ export default function GoalCelebration({ goal, onClose }) {
             </span>
           </div>
 
-          {goal.description && (
+          {currentGoal.description && (
             <p className="mt-2 text-xs text-slate-600 font-medium line-clamp-2">
-              {goal.description}
+              {currentGoal.description}
             </p>
           )}
         </div>

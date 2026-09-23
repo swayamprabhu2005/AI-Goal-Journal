@@ -18,7 +18,7 @@ import { useModal, useToast } from "../context/ModalContext";
 import { goalApi } from "../services/api";
 import CircularProgress from "../components/CircularProgress";
 import { GridSkeleton, GoalLoadingState } from "../components/LoadingSkeleton";
-import GoalCelebration from "../components/GoalCompletionCelebration";
+import GoalCelebration from "../components/GoalCelebration";
 import Pagination from "../components/Pagination";
 import SyncGoogleCalendarModal from "../components/SyncGoogleCalendarModal";
 
@@ -120,8 +120,7 @@ export default function Goals() {
       finalProgress = 100;
     }
 
-    const wasAlreadyCompleted = editingGoal && editingGoal.status === "Completed";
-    const isNewlyCompleted = finalStatus === "Completed" && !wasAlreadyCompleted;
+    const shouldCelebrate = finalStatus === "Completed" || finalProgress === 100;
 
     try {
       if (editingGoal) {
@@ -137,7 +136,7 @@ export default function Goals() {
         };
         const updated = await goalApi.updateGoal(editingGoal.id, payload);
         updateGoalInCache(updated);
-        if (isNewlyCompleted) {
+        if (shouldCelebrate) {
           triggerGoalCompletion(updated);
         }
       } else {
@@ -152,7 +151,7 @@ export default function Goals() {
         };
         const created = await goalApi.createGoal(payload);
         addGoal(created);
-        if (isNewlyCompleted) {
+        if (shouldCelebrate) {
           triggerGoalCompletion(created);
         }
       }
@@ -187,10 +186,6 @@ export default function Goals() {
   }
 
   async function handleQuickStatusChange(goalId, newStatus) {
-    const targetGoal = goals.find((g) => String(g.id) === String(goalId));
-    const wasAlreadyCompleted = targetGoal && targetGoal.status === "Completed";
-    const isNewlyCompleted = newStatus === "Completed" && !wasAlreadyCompleted;
-
     const payload = {
       status: newStatus,
       ...(newStatus === "Completed" ? { progress_value: 100 } : {}),
@@ -200,7 +195,7 @@ export default function Goals() {
       const updated = await goalApi.updateGoal(goalId, payload);
       updateGoalInCache(updated);
 
-      if (isNewlyCompleted) {
+      if (newStatus === "Completed") {
         triggerGoalCompletion(updated);
       }
     } catch (err) {

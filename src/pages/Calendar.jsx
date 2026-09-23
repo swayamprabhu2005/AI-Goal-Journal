@@ -90,8 +90,7 @@ export default function CalendarPage() {
       finalProgress = 100;
     }
 
-    const wasAlreadyCompleted = editingGoal && editingGoal.status === "Completed";
-    const isNewlyCompleted = finalStatus === "Completed" && !wasAlreadyCompleted;
+    const shouldCelebrate = finalStatus === "Completed" || finalProgress === 100;
 
     const payload = {
       title: title.trim(),
@@ -107,13 +106,13 @@ export default function CalendarPage() {
       if (editingGoal) {
         const updated = await goalApi.updateGoal(editingGoal.id, payload);
         updateGoalInCache(updated);
-        if (isNewlyCompleted) {
+        if (shouldCelebrate) {
           triggerGoalCompletion(updated);
         }
       } else {
         const created = await goalApi.createGoal(payload);
         addGoal(created);
-        if (isNewlyCompleted) {
+        if (shouldCelebrate) {
           triggerGoalCompletion(created);
         }
       }
@@ -127,11 +126,8 @@ export default function CalendarPage() {
   }
 
   async function handleQuickStatusChange(goalId, newStatus) {
-    const targetGoal = goals.find((g) => g.id === goalId);
+    const targetGoal = goals.find((g) => String(g.id) === String(goalId));
     if (!targetGoal) return;
-
-    const wasAlreadyCompleted = targetGoal.status === "Completed";
-    const isNewlyCompleted = newStatus === "Completed" && !wasAlreadyCompleted;
 
     const updatedData = {
       ...targetGoal,
@@ -146,7 +142,7 @@ export default function CalendarPage() {
       });
       updateGoalInCache(updated);
 
-      if (isNewlyCompleted) {
+      if (newStatus === "Completed") {
         triggerGoalCompletion(updated);
       }
     } catch (err) {

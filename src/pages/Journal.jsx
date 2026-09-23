@@ -22,6 +22,7 @@ import { journalApi, goalApi } from "../services/api";
 import { useData } from "../context/DataContext";
 import { useModal, useToast } from "../context/ModalContext";
 import { GridSkeleton, JournalLoadingState } from "../components/LoadingSkeleton";
+import GoalCelebration from "../components/GoalCelebration";
 
 export default function Journal() {
   const {
@@ -244,6 +245,12 @@ export default function Journal() {
 
   return (
     <div className="app-page min-h-screen bg-[#F4F1E8]">
+      {recentlyCompletedGoal && (
+        <GoalCelebration
+          goal={recentlyCompletedGoal}
+          onClose={clearCompletedGoalTrigger}
+        />
+      )}
       <main className="mx-auto max-w-7xl w-full px-5 py-6 md:px-8">
         {error && (
           <div className="mb-5 rounded-xl border border-[#C1622C]/30 bg-[#FBEBE3] px-4 py-3 text-xs text-[#C1622C] font-medium">
