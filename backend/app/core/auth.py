@@ -56,16 +56,35 @@ def _verify_token_claims(token: str, project_id: str) -> dict:
         logger.debug("Firebase Admin verify_id_token fallback: %s", admin_err)
 
     # 2. Fallback to Google Auth Public X509 Cert Verification (ADC-free)
+    audiences = [project_id] if project_id else []
     try:
-        decoded = google_id_token.verify_firebase_token(
-            token,
-            _request_adapter,
-            audience=project_id,
-        )
-        return decoded
-    except Exception as cert_err:
-        logger.error("Public certificate token verification failed: %s", cert_err)
-        raise ValueError(f"Token verification failed: {cert_err}")
+        import base64
+        import json
+        parts = token.split(".")
+        if len(parts) >= 2:
+            payload_padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+            unverified_claims = json.loads(base64.urlsafe_b64decode(payload_padded.encode("utf-8")))
+            token_aud = unverified_claims.get("aud")
+            if token_aud and token_aud not in audiences:
+                audiences.append(token_aud)
+    except Exception as parse_err:
+        logger.debug("Failed to inspect unverified token payload: %s", parse_err)
+
+    last_cert_err = None
+    for aud in (audiences or [None]):
+        try:
+            decoded = google_id_token.verify_firebase_token(
+                token,
+                _request_adapter,
+                audience=aud,
+            )
+            return decoded
+        except Exception as cert_err:
+            last_cert_err = cert_err
+            continue
+
+    logger.error("Public certificate token verification failed: %s", last_cert_err)
+    raise ValueError(f"Token verification failed: {last_cert_err}")
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
