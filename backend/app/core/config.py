@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # Groq Conversational AI Coach
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_MODEL: str = "qwen/qwen3.8-27b"
 
     # Cryptography & Security
     ENCRYPTION_KEY: str = "ai-goal-journal-default-secret-dev-key-change-in-prod"

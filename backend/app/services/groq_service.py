@@ -124,22 +124,23 @@ Guidelines:
 
         messages.append({"role": "user", "content": message})
 
-        primary_model = settings.GROQ_MODEL if settings.GROQ_MODEL and "gpt" not in settings.GROQ_MODEL else "llama-3.3-70b-versatile"
-        candidate_models = [primary_model]
-        for fallback in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]:
-            if fallback not in candidate_models:
-                candidate_models.append(fallback)
+        models_to_try = []
+        if settings.GROQ_MODEL and settings.GROQ_MODEL.strip():
+            models_to_try.append(settings.GROQ_MODEL.strip())
+        for m in ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"]:
+            if m not in models_to_try:
+                models_to_try.append(m)
 
         last_error = None
         if client:
-            candidate_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-            for model in candidate_models:
+            for model in models_to_try:
                 try:
                     completion = client.chat.completions.create(
                         model=model,
                         messages=messages,
                         temperature=0.7,
                         max_tokens=800,
+                        timeout=10.0,
                     )
                     reply_text = completion.choices[0].message.content or ""
                     if reply_text.strip():
@@ -154,7 +155,7 @@ Guidelines:
                 except Exception as e:
                     last_error = e
                     logger.warning("Groq model %s attempt failed: %s", model, e)
-                    break
+                    continue
 
         # Resilient fallback to Gemini API
         try:
@@ -162,17 +163,21 @@ Guidelines:
             if gemini_key:
                 from google import genai
                 gclient = genai.Client(api_key=gemini_key)
-                gemini_model = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
                 full_prompt = f"{system_prompt}\n\nUser Question:\n{message}"
-                g_resp = gclient.models.generate_content(
-                    model=gemini_model,
-                    contents=full_prompt,
-                )
-                if g_resp and g_resp.text:
-                    return {
-                        "reply": g_resp.text.strip(),
-                        "model": f"gemini/{gemini_model}",
-                    }
+                for gemini_model in [settings.GEMINI_MODEL or "gemini-2.5-flash", "gemini-2.5-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"]:
+                    try:
+                        g_resp = gclient.models.generate_content(
+                            model=gemini_model,
+                            contents=full_prompt,
+                        )
+                        if g_resp and g_resp.text and g_resp.text.strip():
+                            return {
+                                "reply": g_resp.text.strip(),
+                                "model": f"gemini/{gemini_model}",
+                            }
+                    except Exception as g_err:
+                        logger.warning("Gemini model %s failed: %s", gemini_model, g_err)
+                        continue
         except Exception as gemini_err:
             logger.error("Gemini coaching fallback also failed: %s", gemini_err)
 
