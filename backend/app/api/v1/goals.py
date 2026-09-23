@@ -21,12 +21,31 @@ def list_goals(
 
 @router.post("", response_model=GoalResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=GoalResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
-def create_goal(
+async def create_goal(
     data: GoalCreate,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Create a new goal for the authenticated user."""
-    return goal_service.create_goal(user_id=current_user.uid, data=data)
+    """Create a new goal for the authenticated user and auto-sync to Google Calendar if connected."""
+    new_goal = goal_service.create_goal(user_id=current_user.uid, data=data)
+
+    # Auto-sync to Google Calendar if user has connected their calendar
+    try:
+        from app.services.google_calendar_service import google_calendar_service
+        status_info = google_calendar_service.get_connection_status(user_id=current_user.uid)
+        if status_info.get("connected"):
+            await google_calendar_service.sync_goal_to_calendar(
+                user_id=current_user.uid,
+                goal_id=new_goal.id,
+                target_date=new_goal.target_date,
+            )
+            updated = goal_service.get_goal(user_id=current_user.uid, goal_id=new_goal.id)
+            if updated:
+                return updated
+    except Exception as exc:
+        pass
+
+    return new_goal
+
 
 @router.get("/focus-next", response_model=Optional[FocusNextResponse])
 def get_focus_next_recommendation(

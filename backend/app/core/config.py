@@ -26,8 +26,8 @@ class Settings(BaseSettings):
 
     # Gemini AI Configuration
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
-    GEMINI_MODEL_NAME: str = "gemini-3.1-flash-lite"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
     EXTRACTION_TEMPERATURE: float = 0.0
     MAX_REPAIR_ATTEMPTS: int = 1
 
@@ -50,6 +50,16 @@ class Settings(BaseSettings):
 
     # Database & Persistence
     DATABASE_URL: str = ""
+
+    # Google Calendar Integration
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://127.0.0.1:8000/api/v1/calendar/callback"
+    GOOGLE_CALENDAR_SCOPE: str = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email"
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # Encryption Key
+    JOURNAL_ENCRYPTION_KEY: str = ""
 
     # CORS Origins
     CORS_ORIGINS: List[str] = [

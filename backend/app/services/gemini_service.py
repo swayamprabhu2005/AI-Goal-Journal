@@ -312,16 +312,31 @@ class GeminiService:
 
     def _call_gemini(self, prompt: str) -> str:
         client = self._get_client()
-        response = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=EXTRACTION_SYSTEM_INSTRUCTION,
-                temperature=0.2,
-                response_mime_type="application/json",
-            ),
-        )
-        return response.text
+        candidate_models = [settings.GEMINI_MODEL, "gemini-2.5-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+        unique_models = []
+        for m in candidate_models:
+            if m and m not in unique_models:
+                unique_models.append(m)
+
+        last_err = None
+        for model_name in unique_models:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=EXTRACTION_SYSTEM_INSTRUCTION,
+                        temperature=0.2,
+                        response_mime_type="application/json",
+                    ),
+                )
+                if response.text:
+                    return response.text
+            except Exception as e:
+                last_err = e
+                logger.warning("Gemini model %s failed: %s. Trying next...", model_name, e)
+                continue
+        raise last_err or Exception("All Gemini models failed")
 
     def _parse_and_validate(self, raw_text: str) -> ExtractionResult:
         parsed = json.loads(raw_text)
@@ -441,18 +456,30 @@ Return ONLY a valid JSON object strictly matching this schema:
 }}
 """
 
-        try:
-            client = self._get_client()
-            response = client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=prompt,
-            )
-            cleaned = _clean_json_response(response.text)
-            parsed = json.loads(cleaned)
-            return self._normalize_analysis_result(parsed, content)
-        except Exception as e:
-            logger.error("Gemini analysis error: %s", e)
-            return self._rule_based_fallback(content, str(e))
+        candidate_models = [settings.GEMINI_MODEL, "gemini-2.5-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+        unique_models = []
+        for m in candidate_models:
+            if m and m not in unique_models:
+                unique_models.append(m)
+
+        client = self._get_client()
+        last_e = None
+        for model_name in unique_models:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                cleaned = _clean_json_response(response.text)
+                parsed = json.loads(cleaned)
+                return self._normalize_analysis_result(parsed, content)
+            except Exception as e:
+                last_e = e
+                logger.warning("Gemini model %s analysis failed: %s. Trying fallback model...", model_name, e)
+                continue
+
+        logger.error("All Gemini analysis models failed: %s", last_e)
+        return self._rule_based_fallback(content, str(last_e))
 
     def _normalize_analysis_result(self, parsed: dict[str, Any], content: str) -> dict[str, Any]:
         """Normalize JSON response so that goals, goalsExtracted, completedTasks are always present."""
