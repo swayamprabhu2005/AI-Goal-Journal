@@ -83,40 +83,52 @@ export async function fetchWithAuth(url, options = {}) {
   // Generous timeout guard (300s / 5 minutes) to ensure Render cold starts or AI inference never abort
   const timeoutMs = options.timeout || 300000;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const maxRetries = options.retries ?? 1;
+  let attempt = 0;
 
-  try {
-    const response = await fetch(`${API_BASE}${url}`, {
-      ...options,
-      headers,
-      signal: options.signal || controller.signal,
-    });
+  while (attempt <= maxRetries) {
+    attempt++;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      let errorDetail = 'API request failed';
-      try {
-        const errJson = await response.json();
-        errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
-      } catch {
-        errorDetail = `${response.status} ${response.statusText}`;
+    try {
+      const response = await fetch(`${API_BASE}${url}`, {
+        ...options,
+        headers,
+        signal: options.signal || controller.signal,
+      });
+
+      if (!response.ok) {
+        let errorDetail = 'API request failed';
+        try {
+          const errJson = await response.json();
+          errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
+        } catch {
+          errorDetail = `${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorDetail);
       }
-      throw new Error(errorDetail);
-    }
 
-    // If No Content (204)
-    if (response.status === 204) {
-      return null;
-    }
+      // If No Content (204)
+      if (response.status === 204) {
+        return null;
+      }
 
-    return response.json();
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new Error(`Server is taking longer to respond (cold start). Please retry in a few seconds.`);
+      return await response.json();
+    } catch (err) {
+      const isNetworkError = err.message === 'Failed to fetch' || err.name === 'TypeError';
+      if (isNetworkError && attempt <= maxRetries) {
+        console.warn(`Transient fetch error on ${url}, retrying in 1s... (attempt ${attempt}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
+      if (err.name === 'AbortError') {
+        throw new Error(`Server is taking longer to respond (cold start). Please retry in a few seconds.`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 

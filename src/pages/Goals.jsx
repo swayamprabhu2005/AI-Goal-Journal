@@ -134,11 +134,26 @@ export default function Goals() {
           progress_value: finalProgress,
           latest_progress_note: progressNote.trim() || null,
         };
-        const updated = await goalApi.updateGoal(editingGoal.id, payload);
-        updateGoalInCache(updated);
+        const optimisticGoal = {
+          ...editingGoal,
+          ...payload,
+        };
+        // 0ms instant UI update & celebration
+        updateGoalInCache(optimisticGoal);
         if (shouldCelebrate) {
-          triggerGoalCompletion(updated);
+          triggerGoalCompletion(optimisticGoal);
         }
+        resetForm();
+        setSaving(false);
+
+        // Background sync
+        goalApi.updateGoal(editingGoal.id, payload).then((updated) => {
+          updateGoalInCache(updated);
+        }).catch((err) => {
+          toast.error("Failed to sync goal: " + err.message);
+          fetchGoals(true);
+        });
+        return;
       } else {
         const payload = {
           title: title.trim(),
@@ -176,16 +191,33 @@ export default function Goals() {
     });
     if (!confirmed) return;
 
+    // 0ms instant UI update
+    deleteGoalFromCache(goalId);
+    toast.success("Goal deleted successfully.");
+
     try {
       await goalApi.deleteGoal(goalId);
-      deleteGoalFromCache(goalId);
-      toast.success("Goal deleted successfully.");
     } catch (err) {
       toast.error("Failed to delete goal: " + err.message);
+      fetchGoals(true); // Revert on failure
     }
   }
 
   async function handleQuickStatusChange(goalId, newStatus) {
+    const existing = goals.find((g) => String(g.id) === String(goalId));
+    const optimisticGoal = {
+      ...(existing || {}),
+      id: goalId,
+      status: newStatus,
+      progress_value: newStatus === "Completed" ? 100 : (existing?.progress_value ?? 0),
+    };
+
+    // 0ms instant UI update and celebration
+    updateGoalInCache(optimisticGoal);
+    if (newStatus === "Completed") {
+      triggerGoalCompletion(optimisticGoal);
+    }
+
     const payload = {
       status: newStatus,
       ...(newStatus === "Completed" ? { progress_value: 100 } : {}),
@@ -194,12 +226,12 @@ export default function Goals() {
     try {
       const updated = await goalApi.updateGoal(goalId, payload);
       updateGoalInCache(updated);
-
       if (newStatus === "Completed") {
         triggerGoalCompletion(updated);
       }
     } catch (err) {
       toast.error("Failed to update status: " + err.message);
+      fetchGoals(true); // Revert on failure
     }
   }
 

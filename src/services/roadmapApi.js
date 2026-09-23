@@ -32,6 +32,25 @@ export const USE_MOCK_ROADMAP_API = false;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const roadmapCache = new Map();
+const ROADMAP_STORAGE_KEY = 'ai_journal_cache_roadmaps';
+
+function getStoredRoadmaps() {
+  try {
+    return JSON.parse(localStorage.getItem(ROADMAP_STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredRoadmap(goalId, data) {
+  try {
+    const roadmaps = getStoredRoadmaps();
+    roadmaps[String(goalId)] = data;
+    localStorage.setItem(ROADMAP_STORAGE_KEY, JSON.stringify(roadmaps));
+  } catch (e) {
+    console.error('Failed to cache roadmap in localStorage', e);
+  }
+}
 
 export const roadmapApi = {
   /**
@@ -43,13 +62,24 @@ export const roadmapApi = {
    *   Mock-mode-only preview hooks (e.g. /goals/xyz/roadmap?simulate=empty).
    */
   getRoadmap: async (goalId, options = {}) => {
-    if (!options.forceRefresh && !options.simulate && roadmapCache.has(goalId)) {
-      return roadmapCache.get(goalId);
+    const key = String(goalId);
+    if (!options.forceRefresh && !options.simulate) {
+      if (roadmapCache.has(key)) {
+        return roadmapCache.get(key);
+      }
+      const stored = getStoredRoadmaps();
+      if (stored[key]) {
+        roadmapCache.set(key, stored[key]);
+        return stored[key];
+      }
     }
 
     if (!USE_MOCK_ROADMAP_API) {
       const data = await rawRoadmapApi.getGoalRoadmap(goalId);
-      if (data) roadmapCache.set(goalId, data);
+      if (data) {
+        roadmapCache.set(key, data);
+        saveStoredRoadmap(key, data);
+      }
       return data;
     }
 
@@ -61,7 +91,8 @@ export const roadmapApi = {
     await delay(1400); // simulated AI generation latency
     if (simulate === 'empty') return null;
     const mockData = JSON.parse(JSON.stringify(MOCK_ROADMAP));
-    roadmapCache.set(goalId, mockData);
+    roadmapCache.set(key, mockData);
+    saveStoredRoadmap(key, mockData);
     return mockData;
   },
 
@@ -72,8 +103,12 @@ export const roadmapApi = {
    * @param {boolean} completed
    */
   setTaskCompletion: async (goalId, taskId, completed) => {
+    const key = String(goalId);
     const updated = await rawRoadmapApi.toggleMilestone(goalId, Number(taskId), completed);
-    if (updated) roadmapCache.set(goalId, updated);
+    if (updated) {
+      roadmapCache.set(key, updated);
+      saveStoredRoadmap(key, updated);
+    }
     return updated;
   },
 };

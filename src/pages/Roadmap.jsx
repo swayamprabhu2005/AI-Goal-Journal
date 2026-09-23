@@ -61,16 +61,48 @@ export default function RoadmapPage({
   const [searchParams] = useSearchParams();
   const { goals } = useData();
 
-  const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'empty' | 'error'
-  const [roadmap, setRoadmap] = useState(null);
-  const [completedTaskIds, setCompletedTaskIds] = useState(() => new Set());
+  const [roadmap, setRoadmap] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('ai_journal_cache_roadmaps') || '{}');
+      const cached = stored[String(goalId)];
+      return cached ? normalizeRoadmap(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [status, setStatus] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('ai_journal_cache_roadmaps') || '{}');
+      const cached = stored[String(goalId)];
+      if (cached?.milestones?.length) return 'ready';
+    } catch {}
+    return 'loading';
+  });
+
+  const [completedTaskIds, setCompletedTaskIds] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('ai_journal_cache_roadmaps') || '{}');
+      const cached = stored[String(goalId)];
+      if (cached?.milestones) {
+        const normalized = normalizeRoadmap(cached);
+        return new Set(
+          (normalized?.milestones || []).flatMap((m) =>
+            m.tasks.filter((t) => t.completed).map((t) => t.id),
+          ),
+        );
+      }
+    } catch {}
+    return new Set();
+  });
+
   const [updatingTaskIds, setUpdatingTaskIds] = useState(() => new Set());
   const [taskErrors, setTaskErrors] = useState(() => ({})); // taskId -> message
   const [fetchNonce, setFetchNonce] = useState(0); // bumped to retry a failed load
   const [activeCelebration, setActiveCelebration] = useState(null);
 
   const safeGoals = Array.isArray(goals) ? goals : [];
-  const goal = safeGoals.find((g) => g.id === goalId) || null;
+  const goal = safeGoals.find((g) => String(g.id) === String(goalId)) || null;
   const simulate = searchParams.get('simulate') || undefined;
 
   // Track previously-completed milestones / roadmap so completion events fire
@@ -80,7 +112,10 @@ export default function RoadmapPage({
 
   useEffect(() => {
     let isMounted = true;
-    setStatus('loading');
+    // Only show loading skeletons if we have no roadmap yet
+    if (!roadmap) {
+      setStatus('loading');
+    }
 
     roadmapApi
       .getRoadmap(goalId, { simulate })
@@ -107,7 +142,7 @@ export default function RoadmapPage({
         setStatus(normalized?.milestones?.length ? 'ready' : 'empty');
       })
       .catch(() => {
-        if (isMounted) setStatus('error');
+        if (isMounted && !roadmap) setStatus('error');
       });
 
     return () => {

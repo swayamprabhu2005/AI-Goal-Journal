@@ -584,6 +584,15 @@ Return ONLY a valid JSON object strictly matching this schema:
                 Milestone(step_number=4, title="React Fundamentals", short_description="Components, props, state, hooks (useState, useEffect), and routing", estimated_duration="2 weeks", key_action_item="Convert JavaScript app into a component-driven React app", completed=False),
                 Milestone(step_number=5, title="State Management & Production Build", short_description="Context API, state optimization, Vite bundling, and deployment", estimated_duration="1-2 weeks", key_action_item="Deploy React application to Vercel/Netlify", completed=False),
             ]
+        elif any(k in title_lower for k in ["aws", "cloud", "solutions architect", "devops", "azure", "gcp", "certif"]):
+            milestones = [
+                Milestone(step_number=1, title="Cloud Fundamentals & IAM Security", short_description="Global infrastructure, IAM users, roles, policies, and least-privilege access", estimated_duration="1-2 weeks", key_action_item="Configure multi-factor IAM root and least-privilege admin roles with CLI", completed=False),
+                Milestone(step_number=2, title="Compute & Resilient Networking (VPC & EC2)", short_description="Custom VPCs, public/private subnets, NAT gateways, route tables, and Auto Scaling EC2", estimated_duration="2 weeks", key_action_item="Deploy high-availability EC2 instances across 2 AZs behind an ALB", completed=False),
+                Milestone(step_number=3, title="Storage & Managed Databases (S3 & RDS)", short_description="S3 lifecycle policies, storage classes, RDS Multi-AZ failover, and DynamoDB", estimated_duration="2 weeks", key_action_item="Build static site on S3 with CloudFront CDN and connect to RDS PostgreSQL", completed=False),
+                Milestone(step_number=4, title="Serverless & Event-Driven Architecture", short_description="AWS Lambda, API Gateway, SQS queues, SNS topics, and EventBridge decoupling", estimated_duration="2 weeks", key_action_item="Build asynchronous image-processing microservice using S3, SQS, and Lambda", completed=False),
+                Milestone(step_number=5, title="Security Auditing, CloudWatch & Cost Optimization", short_description="CloudWatch alarms, CloudTrail auditing, AWS Budgets, and Trusted Advisor", estimated_duration="1-2 weeks", key_action_item="Configure budget threshold alerts and automated metric alarms", completed=False),
+                Milestone(step_number=6, title="Practice Exams & Certification Readiness", short_description="Full-length timed practice exams, reviewing question domains and whitepapers", estimated_duration="1-2 weeks", key_action_item="Score 85%+ on two consecutive full-length practice exams", completed=False),
+            ]
         else:
             milestones = [
                 Milestone(step_number=1, title=f"Foundation & Core Concepts of {goal_title}", short_description="Understand essential principles, terminology, and setup", estimated_duration="1 week", key_action_item="Complete foundational reading and setup dev environment", completed=False),

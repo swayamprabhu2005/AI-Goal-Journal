@@ -387,7 +387,9 @@ export default function Journal() {
                     </span>
                   </div>
                   <p className="text-xs font-medium text-slate-700 line-clamp-2 italic leading-relaxed">
-                    "{selectedJournal?.content || "Your journal entry was analyzed and goals/activities tracked."}"
+                    "{selectedJournal?.content && !selectedJournal.content.startsWith("enc:v1:")
+                      ? selectedJournal.content
+                      : (selectedJournal?.title || selectedJournal?.ai_analysis?.quick_summary || "Your journal entry was analyzed and goals/activities tracked.")}"
                   </p>
                 </div>
                 <button
@@ -641,7 +643,9 @@ export default function Journal() {
                           </div>
 
                           <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed font-medium mb-2.5">
-                            {j.content}
+                            {j.content && !j.content.startsWith("enc:v1:")
+                              ? j.content
+                              : (j.title || j.ai_analysis?.quick_summary || j.ai_analysis?.title || "Journal Reflection")}
                           </p>
 
                           <div className="flex items-center justify-between pt-2 border-t border-[#E2E9DF]">
