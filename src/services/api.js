@@ -80,9 +80,8 @@ export async function fetchWithAuth(url, options = {}) {
     ...options.headers,
   };
 
-  // Timeout guard: 120s for AI extraction/coach, 45s for standard CRUD (handles cloud server sleep/cold boots)
-  const isAiRoute = url.includes('/journals') || url.includes('/coach') || url.includes('/summaries');
-  const timeoutMs = options.timeout || (isAiRoute ? 120000 : 45000);
+  // Generous timeout guard (300s / 5 minutes) to ensure Render cold starts or AI inference never abort
+  const timeoutMs = options.timeout || 300000;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

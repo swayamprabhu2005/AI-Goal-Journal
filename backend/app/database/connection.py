@@ -20,35 +20,14 @@ DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./app.db"
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# If PostgreSQL is requested, verify server is actually reachable; otherwise fallback to SQLite
+# If PostgreSQL is requested, ensure sslmode=require for NeonDB / cloud providers
 if DATABASE_URL.startswith("postgresql"):
     if "neon.tech" in DATABASE_URL and "sslmode" not in DATABASE_URL:
         sep = "&" if "?" in DATABASE_URL else "?"
         DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
-
-    import time
-    connected = False
-    last_exc = None
-    for attempt in range(1, 4):
-        try:
-            import psycopg2
-            # Allow serverless databases (NeonDB) to spin up from cold sleep (30s)
-            test_conn = psycopg2.connect(DATABASE_URL, connect_timeout=30)
-            test_conn.close()
-            connected = True
-            print(f"[DB] PostgreSQL connected successfully on attempt {attempt}.")
-            break
-        except Exception as exc:
-            last_exc = exc
-            print(f"[DB] PostgreSQL connect attempt {attempt}/3 failed ({exc}). Retrying in 2s...")
-            time.sleep(2)
-
-    if not connected:
-        print(f"[DB] All PostgreSQL connection attempts failed ({last_exc}). Falling back to local SQLite database.")
-        DATABASE_URL = "sqlite:///./app.db"
-        connect_args = {"check_same_thread": False}
-    else:
-        connect_args = {"connect_timeout": 30}
+    connect_args = {
+        "connect_timeout": 30,
+    }
 else:
     connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 
@@ -59,7 +38,8 @@ try:
         pool_recycle=300 if DATABASE_URL.startswith("postgresql") else -1,
         connect_args=connect_args,
     )
-except Exception:
+except Exception as e:
+    logger.warning("Failed to create engine with DATABASE_URL, falling back to SQLite: %s", e)
     engine = create_engine(
         "sqlite:///./app.db",
         pool_pre_ping=True,
@@ -92,9 +72,7 @@ def init_db():
                     conn.execute(text(f"ALTER TABLE journals ADD COLUMN trigger_keywords {col_type}"))
     except Exception as e:
         print(f"Database init note: {e}")
-
-init_db()
-
+# init_db is invoked during application lifespan startup to avoid blocking imports
 def get_db():
     db = SessionLocal()
     try:

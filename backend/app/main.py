@@ -16,6 +16,11 @@ from app.api.v1.coach import router as coach_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Lightweight lifespan: models are lazy-loaded on demand to preserve 512MB RAM on cloud hosts
+    try:
+        from app.database.connection import init_db
+        init_db()
+    except Exception as e:
+        print(f"Lifespan DB init note: {e}")
     yield
 
 app = FastAPI(

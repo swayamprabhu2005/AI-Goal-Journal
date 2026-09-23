@@ -43,14 +43,12 @@ class GroqService:
 
         # 2. Habits Context
         try:
-            habits = habit_service.list_habits(user_id=user_id)
+            habits = habit_service.get_habits(user_id=user_id)
             if habits:
                 habit_lines = []
                 for h in habits[:6]:
-                    stats = habit_service.get_habit_stats(user_id=user_id, habit_id=h.id)
-                    streak = stats.get("current_streak", 0) if stats else 0
-                    comp = stats.get("completion_rate_30d", 0) if stats else 0
-                    habit_lines.append(f"- '{h.title}' (Freq: {h.frequency}, Streak: {streak} days, 30d consistency: {comp}%)")
+                    habit_name = getattr(h, 'name', None) or getattr(h, 'title', 'Habit')
+                    habit_lines.append(f"- '{habit_name}' (Frequency: {h.frequency})")
                 context_parts.append("### Habits & Consistency:\n" + "\n".join(habit_lines))
         except Exception as e:
             logger.debug("Error fetching habits context: %s", e)
@@ -133,30 +131,30 @@ Guidelines:
                 candidate_models.append(fallback)
 
         last_error = None
-        for model in candidate_models:
-            try:
-                completion = client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=800,
-                )
-                reply_text = completion.choices[0].message.content or ""
-                if reply_text.strip():
-                    return {
-                        "reply": reply_text.strip(),
-                        "model": model,
-                        "usage": {
-                            "prompt_tokens": getattr(completion.usage, "prompt_tokens", None),
-                            "completion_tokens": getattr(completion.usage, "completion_tokens", None),
-                        },
-                    }
-            except Exception as e:
-                last_error = e
-                logger.warning("Groq model %s attempt failed: %s", model, e)
-                continue
-
-        logger.warning("All Groq models failed (%s). Attempting Gemini AI fallback...", last_error)
+        if client:
+            candidate_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+            for model in candidate_models:
+                try:
+                    completion = client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        temperature=0.7,
+                        max_tokens=800,
+                    )
+                    reply_text = completion.choices[0].message.content or ""
+                    if reply_text.strip():
+                        return {
+                            "reply": reply_text.strip(),
+                            "model": model,
+                            "usage": {
+                                "prompt_tokens": getattr(completion.usage, "prompt_tokens", None),
+                                "completion_tokens": getattr(completion.usage, "completion_tokens", None),
+                            },
+                        }
+                except Exception as e:
+                    last_error = e
+                    logger.warning("Groq model %s attempt failed: %s", model, e)
+                    break
 
         # Resilient fallback to Gemini API
         try:
