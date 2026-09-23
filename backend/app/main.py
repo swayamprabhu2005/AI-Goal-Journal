@@ -15,9 +15,7 @@ from app.api.v1.coach import router as coach_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import threading
-    from app.services.whisper_service import whisper_service
-    threading.Thread(target=whisper_service.preload, daemon=True).start()
+    # Lightweight lifespan: models are lazy-loaded on demand to preserve 512MB RAM on cloud hosts
     yield
 
 app = FastAPI(

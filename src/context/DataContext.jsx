@@ -130,22 +130,25 @@ export function DataProvider({ children }) {
         habitApi.listHabits(),
       ]);
 
-      if (profileRes.status === 'fulfilled') {
+      if (profileRes.status === 'fulfilled' && profileRes.value) {
         setProfile(profileRes.value);
-        setHasLoadedProfile(true);
       }
-      if (goalsRes.status === 'fulfilled') {
+      setHasLoadedProfile(true);
+
+      if (goalsRes.status === 'fulfilled' && goalsRes.value) {
         setGoals(goalsRes.value || []);
-        setHasLoadedGoals(true);
       }
-      if (journalsRes.status === 'fulfilled') {
+      setHasLoadedGoals(true);
+
+      if (journalsRes.status === 'fulfilled' && journalsRes.value) {
         setJournals(journalsRes.value || []);
-        setHasLoadedJournals(true);
       }
-      if (habitsRes.status === 'fulfilled') {
+      setHasLoadedJournals(true);
+
+      if (habitsRes.status === 'fulfilled' && habitsRes.value) {
         setHabits(habitsRes.value || []);
-        setHasLoadedHabits(true);
       }
+      setHasLoadedHabits(true);
 
       // Unblock initial loading immediately so UI renders in < 50ms
       setInitialLoading(false);

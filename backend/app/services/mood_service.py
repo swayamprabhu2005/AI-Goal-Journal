@@ -30,32 +30,45 @@ class MoodService:
     _instance: Optional["MoodService"] = None
 
     def __init__(self, model_path: str = DEFAULT_MODEL_PATH, vocab_path: str = DEFAULT_VOCAB_PATH):
+        self.model_path = model_path
+        self.vocab_path = vocab_path
         self.device = torch.device("cpu")
-        self.tokenizer = JournalTokenizer(max_length=80)
+        self.tokenizer = None
+        self.model = None
+        self._loaded = False
 
-        if not os.path.exists(vocab_path):
-            print(f"[!] MoodService: Vocabulary file not found at {vocab_path}")
-            self.model = None
+    def _ensure_loaded(self):
+        if self._loaded:
             return
+        self._loaded = True
+        try:
+            self.tokenizer = JournalTokenizer(max_length=80)
+            if not os.path.exists(self.vocab_path):
+                print(f"[!] MoodService: Vocabulary file not found at {self.vocab_path}")
+                self.model = None
+                return
 
-        self.tokenizer.load_vocab(vocab_path)
-        self.model = EmotionDetectionModel(
-            vocab_size=self.tokenizer.vocab_size,
-            embedding_dim=200,
-            hidden_dim=200,
-            num_classes=len(EMOTION_LABELS),
-            num_layers=2,
-            dropout=0.0,
-            num_heads=4
-        ).to(self.device)
+            self.tokenizer.load_vocab(self.vocab_path)
+            self.model = EmotionDetectionModel(
+                vocab_size=self.tokenizer.vocab_size,
+                embedding_dim=200,
+                hidden_dim=200,
+                num_classes=len(EMOTION_LABELS),
+                num_layers=2,
+                dropout=0.0,
+                num_heads=4
+            ).to(self.device)
 
-        if os.path.exists(model_path):
-            state_dict = torch.load(model_path, map_location=self.device)
-            self.model.load_state_dict(state_dict)
-            self.model.eval()
-            print(f"[*] MoodService: Model loaded onto CPU from {model_path}")
-        else:
-            print(f"[!] MoodService: Checkpoint not found at {model_path}")
+            if os.path.exists(self.model_path):
+                state_dict = torch.load(self.model_path, map_location=self.device)
+                self.model.load_state_dict(state_dict)
+                self.model.eval()
+                print(f"[*] MoodService: Model loaded onto CPU from {self.model_path}")
+            else:
+                print(f"[!] MoodService: Checkpoint not found at {self.model_path}")
+                self.model = None
+        except Exception as e:
+            print(f"[!] MoodService: Lazy model initialization skipped ({e})")
             self.model = None
 
     @classmethod
@@ -68,7 +81,8 @@ class MoodService:
         """
         Predict emotional state and extract keyword triggers for a journal text.
         """
-        if not text or not text.strip() or self.model is None:
+        self._ensure_loaded()
+        if not text or not text.strip() or self.model is None or self.tokenizer is None:
             return {
                 "mood": "neutral",
                 "confidence": 1.0,
