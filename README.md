@@ -1,7 +1,11 @@
-# AI Goal Journal & Accountability Coach
+# AI Goal Journal: Growth Workspace
 
 <p align="center">
-  <strong>Transform natural voice and text reflections into structured milestones, actionable habits, and automated accountability coaching.</strong>
+  <img src="public/logo.png" alt="AI Goal Journal Logo" width="100" height="100" />
+</p>
+
+<p align="center">
+  <strong>An intelligent personal reflection, habit consistency, and goal-tracking workspace powered by on-device Speech-to-Text, custom PyTorch Emotion AI, Groq Conversational Coaching, and Google Gemini Reasoning.</strong>
 </p>
 
 <p align="center">
@@ -10,8 +14,11 @@
   <img src="https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?logo=tailwind-css&logoColor=white" alt="Tailwind CSS 3" />
   <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
+  <img src="https://img.shields.io/badge/PyTorch-CPU_Inference-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch" />
+  <img src="https://img.shields.io/badge/Groq_Cloud-GPT--OSS--120B-F55036" alt="Groq Cloud" />
   <img src="https://img.shields.io/badge/Google_Gemini-3.1_Flash--Lite-4285F4?logo=google&logoColor=white" alt="Gemini Flash-Lite" />
   <img src="https://img.shields.io/badge/faster--whisper-Tiny_INT8-FF6F00" alt="Faster Whisper" />
+  <img src="https://img.shields.io/badge/PostgreSQL-Port_5433-336791?logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Security-AES--256--GCM-critical" alt="AES-256-GCM" />
 </p>
 
@@ -21,129 +28,99 @@
 
 Traditional productivity applications require tedious manual bookkeeping: checking boxes, adjusting sliders, and categorizing tasks into rigid spreadsheets.
 
-**AI Goal Journal & Accountability Coach** completely removes tracking friction. Users reflect naturally—either by speaking through their microphone or typing conversationally. The platform leverages private on-device speech-to-text and Google Gemini structured reasoning to extract completed activities, future plans, active blockers, sentiment trends, and milestone progress. It automatically aligns your daily narrative with long-term goals, calculates progress velocity, prioritizes upcoming deadlines, and generates automated coaching suggestions.
-
-All sensitive personal reflections and coaching records are cryptographically protected at rest using authenticated **AES-256-GCM** envelope encryption with automated zero-downtime key rotation and migration tools.
+**AI Goal Journal: Growth Workspace** eliminates tracking friction. Users reflect naturally—either by speaking through their microphone or typing conversationally. The platform combines:
+- **On-Device Speech Recognition (`faster-whisper` CPU INT8)**: Local, private, zero-cloud transcription.
+- **Custom PyTorch Emotion AI (4-Head Attention BiLSTM)**: Rapid on-device detection across 10 emotional states with trigger keyword extraction in ~3–5 ms.
+- **Interactive Two-Way AI Coach (Groq Cloud API)**: Lightning-fast conversational coaching grounded with active goals, habit streaks, recent reflections, and emotional pulse.
+- **Weekly Growth Insights & Summaries**: Dedicated holistic reflections synthesizing weekly momentum, habit consistency, and active blockers.
+- **Reasoning AI Engine (Google Gemini Flash-Lite)**: Structured extraction of completed activities, future plans, active blockers, and step-by-step goal roadmaps.
+- **Multi-Goal Progress Trajectory**: Interactive vector trend visualization displaying all goals simultaneously with Calm Moss color mapping and portfolio metrics.
+- **High-Performance Habit Tracker**: 0 ms instant UI caching, optimistic updates, Monday–Sunday sequence, and one-way daily lock.
+- **Social & Email Authentication**: Firebase Authentication with seamless Google and Microsoft OAuth 2.0 single sign-on alongside secure email/password auth.
+- **Enterprise-Grade Security**: AES-256-GCM envelope encryption at rest with automated key rotation.
+- **Dual-Persistence Architecture**: Dedicated PostgreSQL container with automatic, transparent SQLite fallback.
 
 ---
 
-## Key Features
+## Core Feature Pillars
 
-### 🎙️ Dual Voice & Text Conversational Journaling
-- **Edge Speech Recognition**: Embedded `faster-whisper` (Tiny model, INT8 quantized on CPU) provides low-latency, zero-cost audio transcription directly on your local system without transmitting raw audio to third-party APIs.
+### 1. 🎙️ Dual Voice & Text Conversational Journaling
+- **Edge Speech Recognition**: Embedded `faster-whisper` (Tiny model, INT8 quantized on CPU) provides low-latency, zero-cost audio transcription directly on your local system without transmitting raw audio to third parties.
 - **Ephemeral Audio Lifecycle**: Uploaded audio is transcribed in temporary memory and wiped immediately after processing.
-- **In-Place AI Synthesis**: Smooth transition from entry drafting to structured extraction, summarizing mood, achievements, future tasks, and friction points.
+- **In-Place AI Synthesis**: Smooth transition from entry drafting to structured extraction, highlighting achievements, future tasks, friction points, and emotional pulse.
 
-### 🎯 Smart Goal Management & "Focus Next" Intelligence
-- **Deterministic Alignment**: Extracted activities are token-matched against active goals to prevent duplicate milestones and ensure accurate tracking.
-- **Dynamic Prioritization**: Automated classification into **High**, **Medium**, or **Low** priority based on deadline proximity, current percentage, and stalled states.
-- **"Focus Next" Recommendations**: Recommends the highest-leverage goal to tackle next with contextual rationale and a clear action item.
-- **Milestone Celebrations**: Completion triggers synchronized 100% progress markers and celebratory confetti animations.
+### 2. 🧠 Custom 10-Class PyTorch Mood & Emotional State Analyzer
+- **4-Head Attention BiLSTM Architecture**: Custom-trained neural network classifying reflections into 10 nuanced emotional classes: `accomplishment`, `motivation`, `focus`, `gratitude`, `breakthrough`, `burnout`, `overwhelmed`, `frustration`, `guilt`, and `neutral`.
+- **4 GB RAM PC Optimized**: Lightweight CPU inference consuming only **~30 MB RAM** with **~3–5 ms latency** per journal entry.
+- **Trigger Keyword Extraction**: Automatically isolates the specific phrases responsible for the detected emotion.
+- **Calm Moss Badges**: Distinct visual indicators mapped across the UI (Journal, Dashboard, and Coach).
 
-### 📈 Historical Progress Analytics & Trend Visualization
-- **Real-Time Dashboard Trend Curve**: Responsive pure-SVG trend chart embedded directly in the main Dashboard and Progress page.
-- **Momentum Metrics**: Tracks net milestone change, update-by-update deltas, and overall trajectory (`Improving`, `Stagnant`, or `Declining`).
-- **Goal Switcher**: Inspect historical progress trajectories across individual goals with instant visual feedback.
+### 3. 💬 Interactive Two-Way Conversational AI Coach
+- **Groq Cloud Speed**: Powered by `openai/gpt-oss-120b` (with automatic fallback to `qwen/qwen3.8-27b` and `openai/gpt-oss-20b`) for ultra-low latency conversational interaction.
+- **Full Context Grounding**: The AI Coach inspects active goals, habit streaks, recent journal reflections, and the user's emotional rhythm to provide personalized, non-generic advice.
+- **Quick-Prompt Suggestions**: One-click prompt pills for instant accountability check-ins (*"How am I doing on my goals this week?"*, *"I'm feeling stuck on a blocker"*, *"Review my habit consistency"*).
+- **Formatted Coaching Output**: Rich visual messages formatted with custom headers, bullet lists, highlight callouts, and action steps (`FormattedChatMessage.jsx`).
 
-### 📅 Habit Tracker with Weekly Sequence & Streaks
-- **Monday–Sunday Grid Sequence**: Track habit routines with formatted ordinal dates (e.g. `21st`).
-- **Streak Calculation**: Continuous daily streak momentum tracking with optimistic instant check-offs.
-- **Week Navigation**: Effortlessly navigate past and upcoming weeks to audit habit consistency over time.
+### 4. 📊 Dedicated Growth Insights & Weekly AI Summaries
+- **Separate Insights Hub**: Located at `/insights`, dedicated specifically to weekly AI summaries, habit consistency trends, blocker retrospectives, and strategic advice.
+- **On-Demand Generation**: AI summaries are generated on demand via Gemini Flash-Lite to conserve API tokens while providing deep, structured reflections.
 
-### 🛡️ Enterprise-Grade Security & Field-Level Encryption
-- **AES-256-GCM Authenticated Encryption**: Sensitive journal entries and weekly coaching suggestions are stored as authenticated envelopes (`enc:v1:...`).
-- **Zero-Knowledge AI in RAM**: Plaintext is held transiently in process memory only for the duration of model execution and never written unencrypted to storage.
-- **Operational Data Migration**: Automated, idempotent batch migration service and CLI (`migrate_existing_data.py`) supporting live and `--dry-run` audits.
-- **Zero-Downtime Key Rotation**: Dedicated `KeyRotationManager` enabling seamless key changes with multi-key backward compatibility.
+### 5. 📈 Multi-Goal Progress Trajectory & Analytics
+- **Portfolio-Wide Trajectory**: Dashboard defaults to "All Goals", plotting each goal on a unified vector chart using distinct Calm Moss theme colors (`#4B5D3C`, `#2D5A43`, `#5B6B3E`, `#736B48`, `#3D5A58`, `#5A4A3D`).
+- **Milestone Start & Current Badges**: Visual indicator tags for start (0%) and current progress on the trajectory curves.
+- **Aggregate Portfolio Statistics**: Instant metrics for Total Goals, Overall Portfolio Progress %, Milestones Completed, and Stalled Goals.
+- **Individual Goal Focus**: Interactive selector to zoom in on any individual goal's historical trajectory curve and deltas.
+- **Instant 0 ms Progress Page Navigation**: Client-side in-memory caching (`progressTrendCache`) eliminates loading screens and spinners when switching tabs.
 
-### ⚡ Deterministic Personal Productivity Score (0–100)
-- Auditable multi-factor formula combining:
-  - **Goal Progress Contribution** ($30\%$)
-  - **Goal Completion Ratio** ($20\%$)
-  - **Completed Activity Volume** ($20\%$, target: 10/wk)
-  - **Journaling Consistency** ($30\%$, target: 5 days/wk)
-  - **Blocker Penalties** ($-3$ pts per active blocker, up to $-15$ pts)
+### 6. 🎯 Smart Goal Management & Roadmap Generation
+- **Goals Tracking**: Renamed to Goals with clear priority indicators (**High**, **Medium**, **Low**).
+- **Sequential Learning Roadmaps**: Gemini transforms any accepted goal into 4–8 sequential milestones with clear task titles, descriptions, logical sequences, and realistic durations.
+- **Bidirectional Progress Sync**: Completing roadmap milestones automatically synchronizes the parent goal's progress value (up to 100% upon completion).
+- **Offline Rule Fallback**: Built-in intelligent fallback for offline or zero-key environments (Python, Frontend, and General curricula).
 
----
+### 7. ⚡ High-Performance Habit Tracker & Daily Lock
+- **Zero Latency (0 ms) Render**: Enriched `GET /api/v1/habits` calculates `completed_today`, `current_streak`, and `recent_logs` in a single SQL query, completely eliminating $N+1$ request waterfalls.
+- **One-Way Daily Completion Lock**: Prevents accidental toggling once a habit is marked complete for the day, preserving streak integrity.
+- **Optimistic Caching**: React `DataContext` caches habit states for instantaneous page navigation and responsive check-offs.
+- **Monday–Sunday Grid Sequence**: Track daily routines with formatted ordinal dates (e.g. `21st`) and week navigation (`<`, `>`).
 
-## System Architecture
+### 8. 🔐 Flexible Social & Email Authentication
+- **Firebase Authentication**: Robust user identity management.
+- **Google & Microsoft OAuth 2.0**: Direct one-click login and registration via Google and Microsoft accounts with official branded buttons.
+- **Traditional Email/Password**: Secure credential registration and login with input validation and password toggles.
 
-```mermaid
-flowchart LR
-    subgraph Frontend["Frontend Layer"]
-        UI["React 18 + Vite Web App<br/>(Calm Moss UI + Trend Charts)"]
-        Auth["Firebase Auth"]
-    end
+### 9. 🛡️ Enterprise-Grade Security & Field-Level Encryption
+- **AES-256-GCM Envelope Encryption**: Sensitive journal content and coaching suggestions are stored as authenticated envelopes (`enc:v1:...`).
+- **Zero-Knowledge AI in RAM**: Plaintext is held transiently in process memory only during model execution and never written unencrypted to disk.
+- **Automated Data Migration**: CLI (`migrate_existing_data.py`) supporting dry-run inspection and live migration.
+- **Zero-Downtime Key Rotation**: Dedicated `KeyRotationManager` enabling key rotation with multi-key backward compatibility.
 
-    subgraph Backend["Application Layer"]
-        API["FastAPI REST API<br/>(Uvicorn + Auth Guard)"]
-        Crypto["AES-256-GCM Encryption"]
-    end
-
-    subgraph AI["AI & Voice Engine"]
-        Whisper["faster-whisper (STT)"]
-        Gemini["Gemini Flash-Lite (LLM)"]
-    end
-
-    subgraph Storage["Storage Layer"]
-        DB["In-Memory Store / PostgreSQL"]
-    end
-
-    Frontend -->|User Requests + Tokens| Backend
-    Backend -->|Audio / Text Reflections| AI
-    AI -->|Transcripts & Insights| Backend
-    Backend -->|Encrypted Records| Storage
-```
-
----
-
-## Data Flow & Processing Lifecycle
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as User
-    participant App as React Frontend
-    participant API as FastAPI Backend
-    participant AI as AI Engine (Whisper + Gemini)
-    participant Store as Secure Storage (AES-256)
-
-    User->>App: Submits voice reflection or text entry
-    opt If Voice Journal
-        App->>API: Upload audio
-        API->>AI: Transcribe speech (Whisper Tiny)
-        AI-->>API: Return text transcript
-        API-->>App: Editable transcript
-    end
-
-    User->>App: Confirms & saves journal
-    App->>API: Send journal content
-    API->>AI: Extract activities, blockers & goal links (Gemini)
-    AI-->>API: Structured analysis (JSON)
-    API->>Store: Save AES-256 encrypted journal
-    Store-->>API: Confirmed
-    API-->>App: Return reflection analysis & updated goals
-    App-->>User: In-place reflection breakdown & updated trend chart
-```
+### 10. 🐳 Dual-Persistence Architecture & Port Management
+- **PostgreSQL Primary**: Dedicated container `ai_goal_journal_db` mapped to port `5433:5432` to avoid collisions with other local containers.
+- **Automatic SQLite Fallback**: Seamless, transparent fallback to local SQLite (`sqlite:///./app.db`) whenever Docker is closed or unreachable.
+- **Port Release Utility (`cleanup_ports.bat`)**: Windows batch script to immediately kill any orphaned or background processes holding ports 5433, 8000, or 5173.
 
 ---
 
 ## Technology Stack
 
-| Domain | Technology | Version / Configuration | Purpose |
+| Domain | Technology | Configuration / Version | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | React | `18.2.0` | Declarative component UI |
-| **Build Tool** | Vite | `5.0.0` | Ultra-fast HMR and bundle compilation |
-| **Styling** | Tailwind CSS | `3.4.0` | Custom Calm Moss aesthetic (`paper`, `ink`, `moss`, `ember`) |
-| **Icons & Motion** | Lucide React / Anime.js | Latest | Clean iconography and micro-interactions |
-| **Backend** | FastAPI | `0.110+` | Asynchronous Python REST API framework |
-| **Server** | Uvicorn | `0.28+` | High-performance ASGI production server |
-| **Schemas** | Pydantic | `v2` | Strict data validation and typed serialization |
-| **Authentication** | Firebase Auth | Web SDK v10 | Client tokens + server-side JWT verification |
-| **Speech-to-Text** | `faster-whisper` | Model: `tiny`, INT8, CPU | Local private STT with zero API cost |
-| **AI Engine** | Google Gemini API | `gemini-3.1-flash-lite` | Structured activity & sentiment extraction |
-| **Cryptography** | `cryptography` | AES-256-GCM | Authenticated field-level envelope encryption |
-| **Persistence** | In-Memory / SQLAlchemy | Python 3.10+ / ORM | Thread-safe isolated storage with SQL compatibility |
+| **Frontend** | React | `18.3.1` | Declarative reactive user interface |
+| **Build Tool** | Vite | `5.4.21` | Fast HMR dev server & production bundler |
+| **Styling** | Tailwind CSS | `3.4.4` | Custom Calm Moss aesthetic (`paper`, `ink`, `moss`, `ember`) |
+| **Visuals & Motion** | Lucide React / Canvas Confetti / Anime.js | Latest | Accessible icons and celebratory feedback |
+| **Backend** | FastAPI | `0.110+` | High-performance asynchronous Python REST API |
+| **Server** | Uvicorn | `0.28+` | Production ASGI web server |
+| **Validation** | Pydantic | `v2` | Strict request/response schemas and serialization |
+| **Auth** | Firebase Authentication | Google & Microsoft OAuth + Email/Password | Secure user identity and token verification |
+| **Speech-to-Text** | `faster-whisper` | Tiny, INT8, CPU | On-device speech-to-text with zero cloud cost |
+| **Custom Emotion AI** | PyTorch BiLSTM + Attention | CPU Inference (~30 MB RAM) | 10-Class mood analysis and trigger keyword extraction |
+| **Conversational Coach** | Groq Cloud API | `openai/gpt-oss-120b` | Low-latency context-grounded accountability coaching |
+| **Reasoning AI Engine** | Google Gemini API | `gemini-3.1-flash-lite` | Structured activity, goal, and roadmap generation |
+| **Encryption** | `cryptography` | AES-256-GCM | Authenticated field-level encryption at rest |
+| **Primary Database** | PostgreSQL | Docker container (Port 5433) | Robust relational persistence |
+| **Fallback Database** | SQLite | `sqlite:///./app.db` | Transparent local persistence if Docker is offline |
 
 ---
 
@@ -151,110 +128,114 @@ sequenceDiagram
 
 ```text
 AI-GOAL-JOURNAL/
-├── public/                       # Static public assets & brand icons
+├── public/                       # Static public assets, logo.png, favicon
+├── docs/                         # Architecture and research documentation
+│   ├── POSITIVE_REINFORCEMENT_SPEC.md # Positive reinforcement & validation spec
+│   ├── COST_ANALYSIS.md          # Token economics & local compute efficiency
+│   ├── PRODUCTIVITY_SCORE_SPEC.md# Deterministic productivity scoring spec
+│   ├── KEY_ROTATION_STRATEGY.md  # Multi-key crypto rotation lifecycle
+│   ├── ENCRYPTION_PRIVACY_RESEARCH.md # AES-256-GCM privacy standards
+│   └── deployment_costs.md       # Production hosting & scale analysis
+├── models/                       # Custom Machine Learning Models
+│   └── mood_analyzer/            # 10-Class Attention BiLSTM Mood Analyzer
+│       ├── weights/              # emotion_model.pth, vocabulary.json, label_mapping.json
+│       ├── model/                # architecture.py, tokenizer.py, dataset.py
+│       ├── training/             # training scripts, datasets, and Jupyter notebook
+│       └── inference.py          # Standalone CPU test inference harness
 ├── src/                          # React Single Page Application (SPA)
-│   ├── animations/               # Animation presets (motion.js)
-│   ├── assets/                   # Bundled brand assets
 │   ├── components/               # Reusable UI components:
-│   │   ├── TrendChart.jsx        # Responsive SVG progress trend chart
+│   │   ├── MoodBadge.jsx         # 10-Class Calm Moss emotion badge
+│   │   ├── FormattedChatMessage.jsx # Formatted AI coaching messages
+│   │   ├── TrendChart.jsx        # Responsive multi-goal SVG progress trend chart
+│   │   ├── Roadmap.jsx           # Interactive visual roadmap component
+│   │   ├── RoadmapCelebration.jsx# 4-tier positive reinforcement card
 │   │   ├── GoalCalendar.jsx      # Interactive deadline & activity calendar
-│   │   ├── GoalCelebration.jsx   # Confetti celebration overlays
-│   │   ├── LoadingSkeleton.jsx   # Polished layout skeleton loaders
-│   │   ├── Sidebar.jsx           # App navigation sidebar
-│   │   └── VoiceRecorder.jsx     # Audio recorder widget
-│   ├── context/                  # React Contexts (AuthContext, DataContext, ModalContext)
+│   │   ├── GoalCelebration.jsx   # Canvas Confetti celebration
+│   │   ├── Sidebar.jsx           # Collapsible navigation rail
+│   │   └── VoiceRecorder.jsx     # On-device audio recorder widget
+│   ├── context/                  # AuthContext, DataContext (with habits caching), ModalContext
 │   ├── pages/                    # Views:
-│   │   ├── Dashboard.jsx         # Momentum metrics, Focus Next, & Progress Trend
-│   │   ├── Journal.jsx           # Dual voice/text journaling & in-place analysis
-│   │   ├── Goals.jsx             # Smart goal management & priority filters
-│   │   ├── Habits.jsx            # Monday-Sunday habit tracker & streaks
-│   │   ├── progress.jsx          # Dedicated detailed progress history & analytics
-│   │   ├── AiCoach.jsx           # Weekly accountability synthesis reports
-│   │   ├── Login.jsx             # Firebase login
-│   │   └── Register.jsx          # Firebase user registration
-│   ├── services/                 # API client wrapper (api.js) & Firebase auth service
-│   ├── App.jsx                   # React Router DOM routing declarations
-│   └── index.css                 # Calm Moss theme tokens & Tailwind directives
+│   │   ├── Dashboard.jsx         # Multi-goal trajectory, portfolio metrics, Mood Rhythm
+│   │   ├── Journal.jsx           # Dual text/voice journaling & in-place emotion analysis
+│   │   ├── AiCoach.jsx           # Interactive 2-way Groq conversational chat & prompt pills
+│   │   ├── Insights.jsx          # Dedicated weekly AI summaries & growth insights
+│   │   ├── Goals.jsx             # Goal management, priority filters, and roadmaps
+│   │   ├── Habits.jsx            # 0 ms instant habit tracker & one-way daily lock
+│   │   ├── progress.jsx          # Progress Center with 0 ms in-memory caching
+│   │   ├── Calendar.jsx          # Monthly calendar matrix & deadline inspector
+│   │   ├── Profile.jsx           # User settings & statistics
+│   │   ├── Auth.jsx              # Unified login/register with Google & Microsoft OAuth
+│   │   └── Landing.jsx           # Public product showcase
+│   ├── services/                 # API client (api.js, coachApi.js, roadmapApi.js) & auth wrappers
+│   ├── App.jsx                   # React Router route declarations
+│   └── index.css                 # Calm Moss theme tokens & animations
 ├── backend/                      # FastAPI Python Application
+│   ├── alembic/                  # Database migrations
 │   ├── app/
-│   │   ├── api/v1/               # API Routers:
-│   │   │   ├── journals.py       # Journal CRUD & speech-to-text pipeline
-│   │   │   ├── goals.py          # Goal CRUD & Focus Next recommendation
-│   │   │   ├── progress.py       # Progress recording, history & trend API
-│   │   │   ├── habits.py         # Habit management & daily completions
+│   │   ├── api/v1/               # API Endpoints:
+│   │   │   ├── journals.py       # Journal CRUD, STT & mood metadata
+│   │   │   ├── coach.py          # Two-way conversational AI coach endpoint
+│   │   │   ├── goals.py          # Goal management & roadmap retrieval
+│   │   │   ├── roadmap.py        # Dedicated roadmap generation & sample APIs
+│   │   │   ├── progress.py       # Historical progress & trend analytics
+│   │   │   ├── habits.py         # Enriched single-request habit endpoints
 │   │   │   ├── summaries.py      # Weekly AI accountability synthesis
-│   │   │   └── productivity.py   # Personal Productivity Score (0-100) API
-│   │   ├── core/                 # Core utilities:
-│   │   │   ├── auth.py           # Firebase ID token verification dependency
-│   │   │   ├── config.py         # Application settings & environment variables
-│   │   │   ├── crypto.py         # AES-256-GCM FieldEncryptionService
-│   │   │   └── key_rotation.py   # Zero-downtime key rotation manager
-│   │   ├── database/             # SQLAlchemy ORM models & database session setup
-│   │   ├── models/               # Domain entity representations
-│   │   ├── repositories/         # Thread-safe in-memory & PostgreSQL repositories
-│   │   ├── schemas/              # Pydantic v2 validation models
-│   │   ├── services/             # Domain business services:
-│   │   │   ├── goal_service.py   # Priority calculation & Focus Next engine
-│   │   │   ├── journal_service.py# AI extraction & encrypted persistence
-│   │   │   ├── progress_service.py# Historical trend calculation & deltas
-│   │   │   ├── migration_service.py# DataEncryptionMigrator for legacy data
-│   │   │   ├── whisper_service.py# Local faster-whisper Tiny STT singleton
-│   │   │   └── gemini_service.py # Google Gemini API structured prompt engine
-│   │   └── main.py               # FastAPI application factory, CORS & routers
-│   ├── scripts/                  # Operational CLI tools:
-│   │   └── migrate_existing_data.py # Batch encryption migration runner
-│   ├── tests/                    # Automated pytest test suite:
-│   │   ├── test_migration.py     # Encryption migration & idempotency tests
-│   │   ├── test_security_regression.py # BOLA, key safety, & tamper resistance
-│   │   ├── test_encryption.py    # Field encryption, decryption & rotation tests
-│   │   ├── test_progress_trends.py# Progress history deltas & prioritization rules
-│   │   ├── test_auto_goals.py    # Goal deduplication & auto-creation tests
-│   │   └── test_unit.py          # Isolation & endpoint contract tests
-│   └── requirements.txt          # Python dependencies
+│   │   │   └── productivity.py   # Deterministic Productivity Score (0-100)
+│   │   ├── core/                 # Auth verification, AES-256 crypto, settings
+│   │   ├── database/             # SQLAlchemy ORM models, dual connection, and auto-migrations
+│   │   ├── models/               # Domain models
+│   │   ├── repositories/         # Dual PostgreSQL/SQLite repositories
+│   │   ├── schemas/              # Pydantic validation schemas
+│   │   ├── services/             # mood_service, groq_service, gemini_service, whisper_service
+│   │   └── main.py               # FastAPI application factory & routes
+│   └── tests/                    # Automated pytest test suites
+├── docker-compose.yml            # Dedicated PostgreSQL container on port 5433
+├── run.bat                       # One-click Windows development launcher
+├── cleanup_ports.bat             # Utility to release occupied ports (5433, 8000, 5173)
 ├── AGENTS.md                     # Universal agent contract & DOX guidelines
 ├── README.md                     # Project documentation
-└── package.json                  # Frontend dependencies and build scripts
+└── package.json                  # Frontend dependencies and scripts
 ```
 
 ---
 
-## Getting Started
+## Quickstart Guide
 
 ### Prerequisites
 - **Python**: `3.10` or higher
-- **Node.js**: `18.0.0` or higher (with `npm`)
-- **Google Gemini API Key**: [Get an API Key](https://aistudio.google.com/)
-- **Firebase Project**: [Firebase Console](https://console.firebase.google.com/) with Email/Password Authentication enabled
+- **Node.js**: `18.0.0` or higher (`npm`)
+- **Docker Desktop** (Optional, recommended for PostgreSQL; transparent SQLite fallback active if omitted)
+- **Google Gemini API Key**: [Obtain from Google AI Studio](https://aistudio.google.com/)
+- **Groq API Key**: [Obtain from Groq Console](https://console.groq.com/)
+- **Firebase Project**: [Firebase Console](https://console.firebase.google.com/) with Email/Password and optional Google/Microsoft Sign-in enabled
 
 ---
 
 ### Step 1: Configure Environment Variables
 
-Create a `.env` file in the project root by copying the template below:
+Create `.env` in the root directory (or copy from `.env.example`):
 
 ```env
-# -----------------------------------------------------------------------------
-# Google Gemini API
-# -----------------------------------------------------------------------------
+# Google Gemini API (Structured Extraction & Roadmaps)
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-3.1-flash-lite
 
-# -----------------------------------------------------------------------------
-# Whisper Speech-to-Text Configuration
-# -----------------------------------------------------------------------------
+# Groq Cloud API (Two-Way Conversational AI Coach)
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=openai/gpt-oss-120b
+
+# Faster-Whisper Speech-to-Text (Local CPU INT8)
 WHISPER_MODEL=tiny
 WHISPER_DEVICE=cpu
 WHISPER_COMPUTE_TYPE=int8
 
-# -----------------------------------------------------------------------------
-# Security & Cryptography (AES-256-GCM)
-# -----------------------------------------------------------------------------
+# AES-256-GCM Field Encryption
 ENCRYPTION_KEY=ai-goal-journal-default-secret-dev-key-change-in-prod
-ENCRYPTION_OLD_KEYS=
 
-# -----------------------------------------------------------------------------
-# Firebase Authentication
-# -----------------------------------------------------------------------------
+# Database Configuration (Docker PostgreSQL on port 5433; auto SQLite fallback if down)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/ai_goal_journal
+
+# Firebase Configuration (Authentication)
 FIREBASE_PROJECT_ID=your-firebase-project-id
 VITE_FIREBASE_API_KEY=your_firebase_web_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your-firebase-project.firebaseapp.com
@@ -266,85 +247,69 @@ VITE_FIREBASE_APP_ID=your_app_id
 
 ---
 
-### Step 2: Start the Backend API
+### Step 2: One-Click Launch (Windows)
 
-1. Open a terminal in the project root:
-   ```bash
-   python -m pip install -r backend/requirements.txt
-   ```
-2. Start the FastAPI server using Uvicorn:
-   ```bash
-   python -m uvicorn app.main:app --app-dir backend --port 8000 --reload
-   ```
-3. Verify backend connectivity:
-   - **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-   - **Health Check**: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
-
----
-
-### Step 3: Start the Frontend Application
-
-1. Open a second terminal in the project root:
-   ```bash
-   npm install
-   ```
-2. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-3. Open your browser:
-   - **Web Application**: [http://localhost:5173](http://localhost:5173)
-
----
-
-## Security & Data Migration
-
-### Field-Level Encryption Standard
-User reflections and coaching records are protected using authenticated **AES-256-GCM**:
-- Nonce: 12-byte cryptographically secure random value generated per encryption.
-- Authentication Tag: 16-byte GCM tag verifying payload integrity and authenticating the sender.
-- Envelope Serialization: `enc:v1:<base64(nonce + ciphertext + tag)>`.
-
-### Running Data Migration CLI
-To audit or migrate legacy unencrypted records to AES-256-GCM ciphertext, use the operational migration script:
-
-```bash
-# 1. Audit unencrypted records (Read-Only Dry Run)
-python backend/scripts/migrate_existing_data.py --dry-run
-
-# 2. Execute live migration
-python backend/scripts/migrate_existing_data.py --verbose
+Simply double-click or run:
+```cmd
+run.bat
 ```
+The launcher will automatically:
+1. Verify Python 3.10+ and Node.js 18+.
+2. Check `.env` configuration.
+3. Check and start the dedicated PostgreSQL Docker container (`ai_goal_journal_db` on port 5433) or activate the SQLite fallback.
+4. Launch the FastAPI backend on [http://127.0.0.1:8000](http://127.0.0.1:8000).
+5. Launch the React Vite frontend on [http://localhost:5173](http://localhost:5173).
+6. Open your default web browser automatically.
+
+> **Port Release Tip**: If you ever experience a port collision or closed terminal sessions unexpectedly, run `cleanup_ports.bat` to instantly release ports 5433, 8000, and 5173.
 
 ---
 
-## Automated Test Suite
+### Step 3: Manual Launch (Alternative)
 
-The backend includes comprehensive test coverage verifying cryptography, authorization isolation, progress calculations, and automated migrations:
+**Backend**:
+```bash
+python -m pip install -r backend/requirements.txt
+python -m uvicorn app.main:app --app-dir backend --port 8000 --reload
+```
+- Interactive Swagger API Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health Check: [http://127.0.0.1:8000/api/v1/health](http://127.0.0.1:8000/api/v1/health)
+
+**Frontend**:
+```bash
+npm install
+npm run dev
+```
+- Web Application: [http://localhost:5173](http://localhost:5173)
+
+---
+
+## Automated Test Suites
+
+The backend includes a comprehensive test suite covering machine learning inference, conversational coaching, cryptography, roadmap generation, and performance:
 
 ```bash
-# Run all automated backend tests
+# Run full test suite
 python -m pytest backend/tests/ -v
 
-# Run migration tests specifically
-python -m pytest backend/tests/test_migration.py -v
+# Run Mood Analyzer & Groq AI Coach tests
+python -m pytest backend/tests/test_mood_and_coach.py -v
 
-# Run security regression tests
-python -m pytest backend/tests/test_security_regression.py -v
+# Run Roadmap API & milestone persistence tests
+python -m pytest backend/tests/test_roadmap_api.py -v
+
+# Run Progress Analytics & trend calculations
+python -m pytest backend/tests/test_progress_trends.py -v
+
+# Run Field Encryption & Key Rotation tests
+python -m pytest backend/tests/test_encryption.py -v
 ```
-
-### Key Test Suites:
-- **`test_migration.py`**: Validates dry-run safety, live migration, and double-encryption prevention idempotency.
-- **`test_security_regression.py`**: Verifies BOLA tenant isolation (User A vs User B), corrupted key handling, and zero-knowledge Gemini RAM processing.
-- **`test_encryption.py`**: Tests AES-256-GCM roundtrips, envelope tamper resistance, and zero-downtime key rotation.
-- **`test_progress_trends.py`**: Validates progress delta tracking, trend direction classification, and smart priority rules.
-- **`test_auto_goals.py`**: Tests fuzzy goal deduplication and automatic goal generation from journal text.
 
 ---
 
-## Contributing & Development Principles
+## Design Principles
 
-- **Security First**: Secrets must never be committed to source control or exposed to client JavaScript.
-- **Privacy by Design**: Sensitive fields must always be encrypted at rest and decrypted only transiently in RAM.
-- **Calm Moss Design**: Maintain consistent typographic hierarchy with `Fraunces` serif headings, `Inter` body text, and tailored Tailwind color tokens (`paper`, `ink`, `moss`, `ember`, `line`).
-- **Dependency Isolation**: Zero mandatory external database daemon requirements for local development.
+- **Mindful Calm Moss Palette**: Calm, focused workspaces using earth tones (`paper`, `ink`, `moss`, `ember`, `line`) to minimize anxiety and enhance deep reflection.
+- **Privacy by Design**: Sensitive user data is encrypted at rest; audio data is never retained; AI operations use RAM-only plaintext.
+- **4 GB RAM PC Friendly**: Local CPU inference uses less than 30 MB RAM; all heavy LLM reasoning is offloaded to high-speed cloud APIs.
+- **Reliable Fallbacks**: Docker PostgreSQL automatically falls back to local SQLite; Groq model queries cascade across 3 models; Gemini extracts gracefully degrade.

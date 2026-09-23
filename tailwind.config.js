@@ -17,18 +17,18 @@ export default {
         wine: '#4338CA',
         border: '#E2E8F0',
 
-        // Indigo Scale (Primary Brand)
-        indigo: {
-          50: '#EEF2FF',
-          100: '#E0E7FF',
-          200: '#C7D2FE',
-          300: '#A5B4FC',
-          400: '#818CF8',
-          500: '#6366F1',
-          600: '#4F46E5',
-          700: '#4338CA',
-          800: '#3730A3',
-          900: '#312E81',
+        // Moss Scale (Primary Brand)
+        moss: {
+          50: '#f6fbee', // background light
+          100: '#ebf0e3', // border/hover
+          200: '#dfe4d8', // line
+          300: '#b9cdaa',
+          400: '#8fa87a',
+          500: '#698154', // medium
+          600: '#526347', 
+          700: '#46553b', // primary button
+          800: '#3a4632',
+          900: '#2e3728',
         },
 
         // Slate Neutrals Scale
@@ -46,23 +46,25 @@ export default {
         },
 
         primary: {
-          DEFAULT: '#4F46E5',
-          dark: '#4338CA',
-          light: '#EEF2FF',
+          DEFAULT: '#46553b',
+          dark: '#3a4632',
+          light: '#f6fbee',
           foreground: '#FFFFFF',
+          container: '#f6fbee',
         },
         secondary: {
-          DEFAULT: '#F1F5F9',
-          foreground: '#334155',
-          hover: '#E2E8F0',
+          DEFAULT: '#ebf0e3',
+          foreground: '#46553b',
+          hover: '#dfe4d8',
+          container: '#ebf0e3',
         },
         accent: {
-          DEFAULT: '#8B5CF6',
-          purple: '#8B5CF6',
-          blue: '#3B82F6',
-          emerald: '#10B981',
+          DEFAULT: '#698154',
+          purple: '#698154',
+          blue: '#526347',
+          emerald: '#46553b',
           foreground: '#FFFFFF',
-          muted: 'rgba(139, 92, 246, 0.12)',
+          muted: 'rgba(70, 85, 59, 0.12)',
         },
         muted: {
           DEFAULT: '#F8FAFC',
@@ -94,12 +96,12 @@ export default {
         }
       },
       backgroundImage: {
-        'primary-grad': 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
-        'ai-grad': 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
+        'primary-grad': 'linear-gradient(135deg, #526347 0%, #46553b 100%)',
+        'ai-grad': 'linear-gradient(135deg, #f6fbee 0%, #ebf0e3 100%)',
         'dark-surface': 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
         'card-grad': 'linear-gradient(145deg, #FFFFFF 0%, #F8FAFC 100%)',
-        'voice-grad': 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 60%, #F5F3FF 100%)',
-        'hero-grad': 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #2563EB 100%)',
+        'voice-grad': 'linear-gradient(135deg, #f6fbee 0%, #ebf0e3 60%, #dfe4d8 100%)',
+        'hero-grad': 'linear-gradient(135deg, #526347 0%, #46553b 50%, #b9cdaa 100%)',
       },
       fontFamily: {
         serif: ['Inter', 'sans-serif'],

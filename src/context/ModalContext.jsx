@@ -7,6 +7,7 @@ import {
   Info,
   X,
   Trash2,
+  LogOut,
 } from 'lucide-react';
 
 const ModalContext = createContext(null);
@@ -146,12 +147,15 @@ export function ModalProvider({ children }) {
                       ? 'bg-amber-50 text-amber-600 border-amber-100'
                       : modalState.variant === 'success'
                       ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                      : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                      : modalState.variant === 'signout'
+                      ? 'bg-[#E2E9DF]/70 text-[#3A492E] border-[#E2E9DF]'
+                      : 'bg-[#E2E9DF]/60 text-[#3A492E] border-[#E2E9DF]'
                   }`}
                 >
                   {modalState.variant === 'danger' && <Trash2 className="w-6 h-6" />}
                   {modalState.variant === 'warning' && <AlertTriangle className="w-6 h-6" />}
                   {modalState.variant === 'success' && <CheckCircle2 className="w-6 h-6" />}
+                  {modalState.variant === 'signout' && <LogOut className="w-6 h-6" />}
                   {modalState.variant === 'info' && <Info className="w-6 h-6" />}
                 </div>
 
@@ -189,7 +193,7 @@ export function ModalProvider({ children }) {
                       ? 'bg-amber-600 hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2'
                       : modalState.variant === 'success'
                       ? 'bg-emerald-600 hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2'
-                      : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+                      : 'bg-[#4B5D3C] hover:bg-[#3A492E] focus:ring-2 focus:ring-[#4B5D3C] focus:ring-offset-2'
                   }`}
                   autoFocus
                 >
@@ -216,7 +220,7 @@ export function ModalProvider({ children }) {
                 {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
                 {t.type === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
                 {t.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-500" />}
-                {t.type === 'info' && <Info className="w-5 h-5 text-indigo-500" />}
+                {t.type === 'info' && <Info className="w-5 h-5 text-[#4B5D3C]" />}
               </div>
               <div className="flex-1 text-sm font-medium text-slate-800 leading-snug">
                 {t.message}

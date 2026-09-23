@@ -50,7 +50,7 @@ export default function Pagination({
             <select
               value={itemsPerPage}
               onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition cursor-pointer"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-700 outline-none focus:border-[#4B5D3C] focus:bg-white transition cursor-pointer"
             >
               {itemsPerPageOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -96,7 +96,7 @@ export default function Pagination({
                   onClick={() => onPageChange && onPageChange(page)}
                   className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-bold transition ${
                     isActive
-                      ? "bg-indigo-600 text-white shadow-xs"
+                      ? "bg-[#4B5D3C] text-white shadow-xs"
                       : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >

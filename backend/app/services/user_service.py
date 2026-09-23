@@ -1,20 +1,20 @@
 from typing import Optional, Any
 from app.models.domain import User
 from app.schemas.user import UserProfileResponse, UserStats, UserProfileUpdate
-from app.repositories.in_memory import user_repo, journal_repo, goal_repo
+from app.repositories.postgres import user_repo, journal_repo, goal_repo
 
 
 class UserService:
     def get_or_create_profile(self, uid: str, email: str, name: Optional[str] = None) -> UserProfileResponse:
         user = user_repo.get_or_create(uid=uid, email=email, name=name)
 
-        # Calculate live stats from in-memory repositories
+        # Calculate live stats from persistent repositories
         journals = journal_repo.get_all_by_user(uid)
         goals = goal_repo.get_all_by_user(uid)
 
-        active_goals = sum(1 for g in goals if g.status.lower() == "active")
-        completed_goals = sum(1 for g in goals if g.status.lower() == "completed")
-        stalled_goals = sum(1 for g in goals if g.status.lower() == "stalled")
+        active_goals = sum(1 for g in goals if (g.status or "").lower() == "active")
+        completed_goals = sum(1 for g in goals if (g.status or "").lower() == "completed")
+        stalled_goals = sum(1 for g in goals if (g.status or "").lower() == "stalled")
 
         blockers_count = 0
         for j in journals[:5]:
@@ -34,7 +34,7 @@ class UserService:
             email=user.email,
             display_name=user.display_name,
             profession=user.profession,
-            preferences=user.preferences,
+            preferences=getattr(user, "preferences", {}),
             created_at=user.created_at,
             stats=stats,
         )
@@ -44,19 +44,16 @@ class UserService:
             uid=uid,
             display_name=data.display_name,
             profession=data.profession,
-            preferences=data.preferences,
         )
         if not user:
             return None
         return self.get_or_create_profile(uid=uid, email=user.email)
 
     def update_preferences(self, uid: str, preferences: dict[str, Any]) -> Optional[UserProfileResponse]:
-        user = user_repo.update_profile(
-            uid=uid,
-            preferences=preferences,
-        )
+        user = user_repo.get_by_uid(uid=uid)
         if not user:
             return None
         return self.get_or_create_profile(uid=uid, email=user.email)
+
 
 user_service = UserService()

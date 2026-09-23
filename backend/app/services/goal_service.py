@@ -264,13 +264,22 @@ class GoalService:
                 logger.info("Auto-goal skipped duplicate: '%s' matched with '%s'", title, duplicate.title)
                 continue
 
+            raw_prog = g_data.get("progress_value", 0) or 0
+            raw_status = str(g_data.get("status", "Active"))
+            if raw_prog >= 100 or raw_status.lower() == "completed":
+                initial_status = "Completed"
+                initial_prog = 100
+            else:
+                initial_status = "Active"
+                initial_prog = raw_prog
+
             new_goal_dto = GoalCreate(
                 title=title,
                 description=g_data.get("description") or "Auto-generated from journal entry.",
                 category=g_data.get("category") or "Personal",
-                status="Active",
+                status=initial_status,
                 target_date=g_data.get("target_date"),
-                progress_value=0,
+                progress_value=initial_prog,
             )
 
             new_goal = self.create_goal(user_id=user_id, data=new_goal_dto)

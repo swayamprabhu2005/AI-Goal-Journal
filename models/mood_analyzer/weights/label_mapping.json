@@ -1,0 +1,12 @@
+{
+  "accomplishment": 0,
+  "motivation": 1,
+  "focus": 2,
+  "gratitude": 3,
+  "breakthrough": 4,
+  "burnout": 5,
+  "overwhelmed": 6,
+  "frustration": 7,
+  "guilt": 8,
+  "neutral": 9
+}

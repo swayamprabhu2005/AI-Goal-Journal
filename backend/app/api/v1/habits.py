@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -44,9 +44,48 @@ def create_habit(
 def get_habits(
     current_user=Depends(get_current_user)
 ):
-    return habit_service.get_habits(
-        current_user.uid
-    )
+    habits = habit_service.get_habits(current_user.uid)
+    result = []
+    today = datetime.utcnow().date()
+    for h in habits:
+        logs = habit_service.get_logs(current_user.uid, h.id)
+        completed_days = {log.completed_date.date() for log in logs}
+        completed_today = today in completed_days
+
+        if today in completed_days:
+            curr_day = today
+        elif (today - timedelta(days=1)) in completed_days:
+            curr_day = today - timedelta(days=1)
+        else:
+            curr_day = None
+
+        streak = 0
+        while curr_day and curr_day in completed_days:
+            streak += 1
+            curr_day -= timedelta(days=1)
+
+        result.append(
+            HabitResponse(
+                id=h.id,
+                user_id=h.user_id,
+                name=h.name,
+                description=h.description,
+                frequency=h.frequency,
+                created_at=h.created_at,
+                updated_at=h.updated_at,
+                completed_today=completed_today,
+                current_streak=streak,
+                recent_logs=[
+                    HabitLogResponse(
+                        id=l.id,
+                        habit_id=l.habit_id,
+                        completed_date=l.completed_date,
+                        created_at=l.created_at,
+                    ) for l in logs
+                ],
+            )
+        )
+    return result
 
 
 @router.get(

@@ -21,8 +21,8 @@
    - Cache user profile, goals, journals, and weekly AI summaries in memory.
    - Provide quiet background revalidation while rendering cached state instantly on route navigation.
 3. **Exposed Helper Methods**:
-   - Auth: `login(email, password)`, `register(email, password)`, `logout()`.
-   - Data: `useData()` hook exposing cached state and sync helpers (`addGoal`, `addJournal`, `updateProfileInCache`, etc.).
+   - Auth: `login(email, password)`, `register(email, password)`, `loginWithGoogle()`, `loginWithMicrosoft()`, `logout()`.
+   - Data: `useData()` hook exposing cached state and sync helpers (`addGoal`, `addJournal`, `updateProfileInCache`, `habits`, `refreshHabits`, etc.).
 4. **No Mock Bypass**:
    - Never inject hardcoded users or fake metrics into context state.
    - Any code consuming auth or workspace data must use `useAuth()` or `useData()`.

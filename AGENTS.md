@@ -1,112 +1,412 @@
 # AI Goal Journal & Accountability Coach — AGENTS.md
 
-> **Root Agent Contract & DOX Directory**  
-> *Methodology*: DOX (Documentation-as-Context) Hierarchy  
-> *Target Environment*: Local MVP (React + Vite + Firebase Auth + FastAPI + faster-whisper Tiny + Google Gemini Flash-Lite + In-Memory Persistence + AES-256-GCM Encryption)
+## Purpose
+
+This repository contains the **AI Goal Journal & Accountability Coach** project.
+
+This file provides a shared project context for developers and AI agents so that implementation, documentation, architecture decisions, and API contracts remain consistent across the repository.
 
 ---
 
-## 1. Project Overview & Mission
+## Project Overview
 
-**AI Goal Journal & Accountability Coach** is an intelligent personal reflection, habit consistency, and goal-tracking platform tailored for students, working professionals, freelancers, and entrepreneurs. The application eliminates the friction of manual productivity tracking by using AI to transform conversational text or voice journals into structured activities (completed vs. planned), active blockers, goal progress markers, smart goal prioritization, and weekly accountability coaching insights.
+AI Goal Journal & Accountability Coach is an **AI-powered personal productivity platform** that transforms daily **voice or text journal entries** into structured goals, progress insights, blocker detection, and personalized coaching summaries.
 
----
+The system is designed to reduce the manual effort required by traditional productivity and goal-tracking applications while improving accountability and consistency.
 
-## 2. Technology Stack
+### Primary Capabilities
 
-- **Frontend**: React 18, Vite 5, Tailwind CSS 3 (Custom Calm Moss design system), React Router DOM 6, Anime.js, Canvas Confetti.
-- **Backend**: FastAPI, Python 3.10+, Uvicorn, Pydantic v2.
-- **Authentication**: Firebase Authentication (Client-side modular SDK + Backend Firebase Admin / Google public cert token verification).
-- **Speech-to-Text**: `faster-whisper` (Model: `tiny`, Device: `cpu`, Compute: `int8`, lazy singleton).
-- **AI Engine**: Google Gemini API (`gemini-3.1-flash-lite` via `google-genai` SDK).
-- **Security & Cryptography**: AES-256-GCM field encryption (`cryptography`), plaintext backward compatibility, zero-downtime key rotation.
-- **Persistence (Current Phase)**: Thread-safe in-memory repository layer with strict per-user data isolation.
-- **Persistence (Future Cloud Phase)**: PostgreSQL with SQLAlchemy and Alembic migrations (strictly deferred; not required for running the app).
-
----
-
-## 3. Universal Development Rules for AI Agents
-
-1. **DO NOT Install or Clone DOX**: DOX is a documentation methodology based on `AGENTS.md` files. Do NOT install DOX as an npm package, Python dependency, or Git submodule.
-2. **NO Docker / NO Running PostgreSQL Required**:
-   - Docker, Docker Desktop, Dockerfiles, and `docker-compose.yml` are **strictly NOT needed** to run this website.
-   - The application runs directly in local Python (`3.10+`) and Node.js (`18+`) environments.
-   - The runtime default persistence is the thread-safe **in-memory repository layer** (`backend/app/repositories/in_memory.py`). Live PostgreSQL servers are NOT required.
-   - **In-Memory Lifecycle**: During local MVP operation, all state (journals, goals, habits, progress) lives in Python process memory (RAM). When the server process restarts (such as when uvicorn reloads after code edits or when closing the terminal), the in-memory store reinitializes. Durable disk persistence via PostgreSQL/SQLAlchemy is deferred to the cloud phase.
-3. **DO NOT Break or Mock Firebase Authentication**: Preserve `src/firebase.js`, `src/services/authService.js`, and `src/context/AuthContext.jsx`. All protected backend endpoints must authenticate requests using verified Firebase ID tokens (`Authorization: Bearer <token>`). Never trust a client-supplied user ID.
-4. **4 GB RAM PC Constraint**:
-   - Only `faster-whisper` **Tiny** model with **INT8** quantization on **CPU** is permitted.
-   - Lazy-load the Whisper model once as a singleton. Never load multiple instances or larger Whisper models (`base`, `small`, `medium`, `large`).
-   - No GPU, CUDA, or heavy ML dependencies.
-5. **Gemini Cost & Usage Rules**:
-   - Use `gemini-3.1-flash-lite` via the `google-genai` Python SDK.
-   - Keep `GEMINI_API_KEY` exclusively on the backend in `.env`. Never prefix with `VITE_` or expose to client JavaScript.
-   - Target 1 structured extraction call per journal submission. Retries must be explicit and bounded.
-   - Weekly AI summaries must be generated on-demand only.
-   - Unit tests must NEVER make live Gemini API calls, Firebase network calls, or load the Whisper model.
-6. **Field-Level Encryption & Backward Compatibility**:
-   - Sensitive user journal entries and coaching summaries are encrypted using AES-256-GCM with the `enc:v1:` prefix.
-   - Plaintext records created prior to encryption must be decrypted transparently without errors.
-   - Gemini AI service must always receive decrypted plaintext.
-7. **Preserve User Data on AI Errors**: If Gemini fails to return valid JSON, preserve the raw journal entry in memory and return a clean warning. Never discard user data.
-8. **Maintain Calm Moss Aesthetic**: Uphold the tailored Tailwind theme (`paper`, `ink`, `moss`, `ember`, `line`) with `Fraunces` serif headings and `Inter` body text.
+* Voice and text journaling
+* AI-based goal extraction
+* Automatic progress tracking
+* Completed activity identification
+* Blocker and recurring pattern detection
+* Weekly AI-generated summaries
+* Personalized coaching suggestions
+* Goal dashboard and activity timeline
 
 ---
 
-## 4. Current Implementation Status Matrix
+## Problem Statement
 
-| Component | Status | Details |
-| :--- | :--- | :--- |
-| **Firebase Auth (Client)** | **Complete** | Registration, Login, Logout, Session persistence, Protected Routes. |
-| **Firebase Token Verification (Server)** | **Complete** | FastAPI dependency `get_current_user` in `backend/app/core/auth.py`. |
-| **In-Memory Repositories** | **Complete** | Thread-safe in-memory stores for Users, Journals, Goals, Habits, Progress, Summaries. |
-| **Speech-to-Text (faster-whisper)** | **Complete** | Tiny model CPU INT8 lazy singleton; ephemeral audio cleanup; `/voice/transcribe`. |
-| **AI Journal & In-Place Analysis** | **Complete** | `gemini-3.1-flash-lite` structured extraction; in-place result transition + auto-scroll; renamed to AI Journal. |
-| **Goals Management & Prioritization** | **Complete** | CRUD endpoints, deterministic goal matching, smart priority, auto-sync 100% progress on completion. |
-| **Historical Progress & Trend API** | **Complete** | Chronological ordering, deltas (`change_from_previous`), trend direction (`improving`), completed badges. |
-| **Progress Analytics Dashboard** | **Complete** | Real-time SVG TrendChart component (`components/TrendChart.jsx`), progress gained, streak analytics integrated into Dashboard. |
-| **Data Migration Service** | **Complete** | Safe batch migration from legacy plaintext to AES-256-GCM (`app/services/migration_service.py`, `scripts/migrate_existing_data.py`). |
-| **Habits Tracker & Streaks** | **Complete** | In-memory persistence, Monday–Sunday sequence, ordinal dates (`21st`), week navigation (`<`, `>`), optimistic check-offs. |
-| **Field Encryption & Key Rotation** | **Complete** | AES-256-GCM envelope encryption, backward compatibility, `KeyRotationManager`. |
-| **Productivity Score API (0–100)** | **Complete** | Multi-factor deterministic formula mounted at `/api/v1/productivity-score`. |
-| **Cost & Deployment Documentation** | **Complete** | Dedicated API token model (`docs/COST_ANALYSIS.md`) and deployment/hosting architecture (`docs/deployment_costs.md`). |
-| **Brand Identity & Navigation** | **Complete** | Custom quill & AI chip logo (`public/logo.png`), responsive sidebar spacing, calendar padding. |
-| **PostgreSQL & Docker** | **DEFERRED** | ORM models prepared for future cloud phase; zero runtime requirement for local MVP. |
+Traditional productivity applications require users to manually create goals, update task progress, maintain habit trackers, and review their own performance. Over time, this manual effort causes users to lose motivation and stop using these applications.
+
+Journaling applications capture valuable daily experiences but typically fail to transform those entries into **structured goals, measurable progress, or actionable insights**.
+
+This project bridges that gap by using **Artificial Intelligence to automatically analyze daily voice or text journals and generate actionable productivity insights and coaching recommendations**.
 
 ---
 
-## 5. Security & Environment Rules
+## Primary Users
 
-- **Zero Secret Commits**: Never commit `.env` or hardcode secrets in source code, documentation, or tests.
-- **Frontend vs. Backend Variables**:
-  - Frontend: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`.
-  - Backend: `GEMINI_API_KEY`, `GEMINI_MODEL`, `WHISPER_MODEL`, `WHISPER_DEVICE`, `WHISPER_COMPUTE_TYPE`, `FIREBASE_PROJECT_ID`, `ENCRYPTION_KEY`, `ENCRYPTION_OLD_KEYS`.
-- **Audio Privacy**: Temporary audio uploaded for transcription is written to temporary files and immediately deleted after transcription.
+* **Students** — study goals, assignments, placement preparation
+* **Working Professionals** — project tracking, productivity improvement
+* **Freelancers** — client and deadline management
+* **Entrepreneurs** — business goals, meetings, weekly performance review
 
 ---
 
-## 6. Subtree DOX Directory Index
+## Repository Structure
 
-Before modifying any file in a subtree, agents MUST read the corresponding `AGENTS.md`:
+```text
+AI-GOAL-JOURNAL/
+├── AGENTS.md
+├── backend/
+├── frontend/
+├── docs/
+└── README.md
+```
 
-- **Documentation Suite (`docs/`)**:
-  - [`docs/COST_ANALYSIS.md`](file:///docs/COST_ANALYSIS.md) — Token mathematical models, local hardware consumption, faster-whisper savings, and API guardrails.
-  - [`docs/deployment_costs.md`](file:///docs/deployment_costs.md) — Hosting platforms (Vercel, Render, VPS), Docker containerization, scaling tiers, and manual deployment instructions.
-  - [`docs/KEY_ROTATION_STRATEGY.md`](file:///docs/KEY_ROTATION_STRATEGY.md) — Dual-key crypto rotation lifecycle and zero-downtime re-encryption.
-  - [`docs/PRODUCTIVITY_SCORE_SPEC.md`](file:///docs/PRODUCTIVITY_SCORE_SPEC.md) — Mathematical specification of the deterministic 0–100 productivity score.
-  - [`docs/ENCRYPTION_PRIVACY_RESEARCH.md`](file:///docs/ENCRYPTION_PRIVACY_RESEARCH.md) — AES-256-GCM envelope encryption architecture.
-- **Frontend Subtrees**:
-  - [`src/AGENTS.md`](file:///src/AGENTS.md) — Frontend overview, styling tokens, React standards, pages, and components.
-  - [`src/components/AGENTS.md`](file:///src/components/AGENTS.md) — Reusable UI component contracts and accessibility standards.
-  - [`src/context/AGENTS.md`](file:///src/context/AGENTS.md) — Auth state context, DataContext, ModalContext.
-  - [`src/pages/AGENTS.md`](file:///src/pages/AGENTS.md) — Page routing, views, loading/empty states.
-  - [`src/services/AGENTS.md`](file:///src/services/AGENTS.md) — Frontend API client and Firebase auth service wrappers.
-- **Backend Subtrees**:
-  - [`backend/AGENTS.md`](file:///backend/AGENTS.md) — Backend architecture, environment, and error handling.
-  - [`backend/app/AGENTS.md`](file:///backend/app/AGENTS.md) — FastAPI application structure, CORS, and middleware.
-  - [`backend/app/api/AGENTS.md`](file:///backend/app/api/AGENTS.md) — API v1 route specifications and status code contracts.
-  - [`backend/app/core/AGENTS.md`](file:///backend/app/core/AGENTS.md) — Settings, Auth, AES-256-GCM crypto, Key Rotation.
-  - [`backend/app/models/AGENTS.md`](file:///backend/app/models/AGENTS.md) — Internal domain entity representations.
-  - [`backend/app/repositories/AGENTS.md`](file:///backend/app/repositories/AGENTS.md) — In-memory persistence contracts and migration boundary.
-  - [`backend/app/schemas/AGENTS.md`](file:///backend/app/schemas/AGENTS.md) — Pydantic validation schemas.
-  - [`backend/app/services/AGENTS.md`](file:///backend/app/services/AGENTS.md) — Business services (Whisper, Gemini, Goals, Journals, Progress, Productivity, Coach, Migration).
+---
+
+## Technology Stack
+
+### Frontend
+
+* React.js
+* Tailwind CSS
+* React Router
+
+### Backend
+
+* FastAPI
+* Python 3.11+
+* Pydantic
+* SQLAlchemy ORM
+
+### Database
+
+* PostgreSQL
+
+### Authentication
+
+* Firebase Authentication
+* Firebase ID Token verification
+
+### AI Layer
+
+* Google Gemini API
+* Whisper-class speech-to-text service for voice transcription
+
+### DevOps / Deployment
+
+* GitHub
+* GitHub Actions (planned CI/CD)
+* Docker & Docker Compose
+* Vercel (frontend deployment target)
+* Railway or Render (backend and PostgreSQL deployment targets)
+
+---
+
+## High-Level Architecture
+
+```text
+React Frontend
+        ↓
+Firebase Authentication
+        ↓
+FastAPI REST API
+        ↓
+Service Layer
+        ↓
+SQLAlchemy ORM
+        ↓
+PostgreSQL Database
+        ↓
+Gemini AI + Speech-to-Text Services
+```
+
+### Component Responsibilities
+
+| Component       | Responsibility                          |
+| --------------- | --------------------------------------- |
+| React Frontend  | User interface and API requests         |
+| FastAPI Backend | Business logic, validation, and routing |
+| SQLAlchemy      | Database abstraction layer              |
+| PostgreSQL      | Persistent storage                      |
+| Gemini AI       | Journal analysis and coaching insights  |
+| Whisper / STT   | Voice transcription                     |
+
+---
+
+## Backend Conventions
+
+The backend follows a **modular layered architecture**:
+
+```text
+backend/app/
+├── api/
+├── models/
+├── schemas/
+├── services/
+├── db/
+└── main.py
+```
+
+### API Design Principles
+
+* RESTful endpoints
+* JSON request/response format
+* Pydantic validation for all incoming data
+* Proper HTTP status codes
+* User-scoped resource access
+* Consistent response structure across services
+
+### Current / Planned User APIs
+
+* `GET /api/v1/users/health`
+* `POST /api/v1/users/sync`
+* `GET /api/v1/users/me`
+* `PUT /api/v1/users/me`
+
+---
+
+## AI Workflow
+
+```text
+User Journal Entry (Text / Voice)
+                ↓
+Speech-to-Text (for voice entries)
+                ↓
+FastAPI Validation Layer
+                ↓
+Gemini Prompt Processing
+                ↓
+Structured JSON Extraction
+                ↓
+Goal / Activity / Blocker Validation
+                ↓
+PostgreSQL Storage
+                ↓
+Dashboard & Weekly Summary Updates
+```
+
+### Expected Structured Response
+
+```json
+{
+  "goals": [],
+  "completed_activities": [],
+  "blockers": []
+}
+```
+
+---
+
+## Database Overview
+
+Core entities identified during research:
+
+* `users`
+* `journal_entries`
+* `goals`
+* `progress` / `goal_updates`
+* `weekly_summaries`
+* `ai_insights`
+
+### Key Relationships
+
+* One **User** → many **Journal Entries**
+* One **User** → many **Goals**
+* One **Journal Entry** → many **AI-extracted goals**
+* One **Goal** → many **Progress Updates**
+* One **User** → many **Weekly Summaries**
+
+All user-owned tables must include a **`user_id` foreign key** and all queries must be filtered by the authenticated user.
+
+---
+
+## Functional Scope
+
+### Authentication
+
+* User Registration
+* Login / Logout
+* Profile Management
+* Firebase token verification
+
+### Journal Module
+
+* Create text journal
+* Create voice journal
+* Edit journal
+* Delete journal
+* View journal history
+
+### AI Module
+
+* Speech-to-Text
+* Goal Extraction
+* Task Identification
+* Blocker Detection
+* Progress Calculation
+* AI Coaching Suggestions
+* Weekly Summary Generation
+
+### Goal Management
+
+* Automatic goal creation proposals
+* Goal progress updates
+* Goal status management (Active, Completed, Stalled)
+* Goal categories and timelines
+
+### Dashboard
+
+* Active goals
+* Completed goals
+* Progress charts
+* Activity timeline
+* Weekly AI insights
+* Productivity summary widgets
+
+---
+
+## Non-Functional Requirements
+
+### Performance
+
+* Dashboard load target: **< 3 seconds**
+* AI analysis target: **< 10 seconds**
+* Support multiple simultaneous users
+
+### Security
+
+* Firebase Authentication
+* HTTPS communication
+* Secure API token handling
+* JWT / Firebase ID token validation
+* User-level authorization checks
+
+### Maintainability
+
+* Modular codebase
+* Clean architecture principles
+* Reusable frontend components
+* API documentation through FastAPI Swagger/OpenAPI
+
+---
+
+## Frontend Architecture Guidance
+
+The frontend should follow a **feature-based structure**:
+
+```text
+src/
+  app/
+  features/
+    auth/
+    journal/
+    goals/
+    dashboard/
+    coaching/
+    profile/
+  shared/
+    components/
+    hooks/
+    utils/
+    services/
+```
+
+Reusable UI primitives should be placed under **`shared/components`**, while API calls should remain isolated in **`shared/services`**.
+
+---
+
+## Team Responsibilities
+
+| Member       | Responsibility                            |
+| ------------ | ----------------------------------------- |
+| **Aditya**   | User Management & Backend Integration     |
+| **Farah**    | Database & Journal Backend                |
+| **Panshobh** | Frontend Foundation & UI/UX               |
+| **Sheryl**   | Gemini AI Integration                     |
+| **Swayam**   | Firebase Authentication & Voice Prototype |
+
+---
+
+## Documentation Structure
+
+Project documentation is stored in:
+
+```text
+docs/agent0ai-doxx/
+├── PROJECT_CONTEXT.md
+├── PRD.md
+├── PPT_STRUCTURE.md
+└── README.md
+```
+
+These files provide:
+
+* AI-agent onboarding context
+* Product requirements
+* Architecture references
+* Presentation structure and project overview
+
+---
+
+## GitHub Workflow
+
+The project follows a **feature-branch workflow**:
+
+1. Create a feature branch from `main`.
+2. Implement isolated changes.
+3. Commit with meaningful messages.
+4. Push the branch to GitHub.
+5. Create a Pull Request for review before merging.
+
+This allows multiple team members to work simultaneously without affecting the stable branch.
+
+---
+
+## Verification Checklist
+
+### Backend
+
+Run locally:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Verify Swagger Docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+### API Testing
+
+Use **Postman** to test:
+
+* Login / authentication flows
+* User synchronization
+* Journal CRUD endpoints
+* Goal management endpoints
+* AI analysis endpoints
+
+### Documentation
+
+* Ensure Markdown renders correctly in VS Code.
+* Keep architecture diagrams and API references synchronized with implementation changes.
+* Remove outdated instructions whenever workflows change.
+
+---
+
+## Current Development Focus
+
+### Active Priorities
+
+* User Profile API implementation
+* Firebase UID → PostgreSQL user mapping
+* SQLAlchemy + PostgreSQL integration
+* Journal CRUD API completion
+* Frontend authentication screens and journal UI
+* Gemini structured JSON extraction and validation
+* Voice recording and transcription integration
+* Project documentation and architecture maintenance
+
+---
+
+## Important Constraint
+
+AI-generated goal updates should **not automatically modify critical user goals without a review or confirmation step**. The original journal entry must remain the **source of truth**, and extracted goals or progress updates should be treated as **AI-generated suggestions** that can be accepted, edited, or rejected by the user.

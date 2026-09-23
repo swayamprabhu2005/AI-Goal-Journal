@@ -3,8 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.core.auth import get_current_user, AuthenticatedUser
 from app.schemas.goal import GoalCreate, GoalUpdate, GoalResponse, FocusNextResponse
 from app.schemas.progress import ProgressCreate, ProgressResponse
+from app.schemas.roadmap import RoadmapResponse
 from app.services.goal_service import goal_service
 from app.services.progress_service import progress_service
+from app.services.gemini_service import gemini_service
 
 router = APIRouter(prefix="/goals", tags=["Goals"])
 
@@ -98,3 +100,51 @@ def get_goal_progress_history(
 ):
     """Get progress history for a goal."""
     return progress_service.get_progress_history(user_id=current_user.uid, goal_id=goal_id)
+
+from app.services.roadmap_service import roadmap_service
+
+@router.post("/{goal_id}/roadmap", response_model=RoadmapResponse)
+@router.get("/{goal_id}/roadmap", response_model=RoadmapResponse)
+def get_or_generate_goal_roadmap(
+    goal_id: str,
+    timeline: Optional[str] = Query("Self-paced"),
+    level: Optional[str] = Query("Beginner"),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Generate or retrieve a structured learning roadmap for an existing goal."""
+    goal = goal_service.get_goal(user_id=current_user.uid, goal_id=goal_id)
+    if not goal:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Goal not found",
+        )
+    return roadmap_service.get_or_create_roadmap(
+        user_id=current_user.uid,
+        goal_id=goal_id,
+        goal_title=goal.title,
+        timeline=timeline or "Self-paced",
+        level=level or "Beginner",
+    )
+
+@router.post("/{goal_id}/roadmap/milestones/{step_number}/toggle", response_model=RoadmapResponse)
+@router.put("/{goal_id}/roadmap/milestones/{step_number}/toggle", response_model=RoadmapResponse)
+def toggle_roadmap_milestone(
+    goal_id: str,
+    step_number: int,
+    completed: Optional[bool] = Query(None),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Toggle or set milestone completion status for a goal roadmap."""
+    updated = roadmap_service.toggle_milestone(
+        user_id=current_user.uid,
+        goal_id=goal_id,
+        step_number=step_number,
+        completed=completed,
+    )
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Roadmap or milestone not found",
+        )
+    return updated
+

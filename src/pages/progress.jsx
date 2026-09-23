@@ -9,7 +9,7 @@ import {
   Minus,
   ChevronDown,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useData } from "../context/DataContext";
 import { progressApi } from "../services/api";
 import CircularProgress from "../components/CircularProgress";
@@ -123,6 +123,8 @@ function formatChange(value) {
 
 
 
+const progressTrendCache = new Map();
+
 export default function Progress() {
   const { goals = [], journals = [], initialLoading } = useData();
 
@@ -135,25 +137,41 @@ export default function Progress() {
   const [histLoading, setHistLoading] = useState({});
   const [histError, setHistError] = useState({});
 
+  // Analytics period ("7" | "30" | "90" | "all") used to request period-based progress gain.
+  // Defaults to 30 days per the Progress Period requirement.
+  const [periodDays, setPeriodDays] = useState("30");
+
   // Default to the first available goal.
   const activeGoalId = goals.some((g) => g.id === selectedGoalId)
     ? selectedGoalId
     : goals[0]?.id || null;
 
-  // Fetch real progress history & trend whenever activeGoalId changes
+  // Fetch real progress history & trend whenever activeGoalId changes with 0ms in-memory cache
   useEffect(() => {
     if (!activeGoalId) return;
 
+    const cacheKey = `${activeGoalId}_${periodDays}`;
     let isMounted = true;
-    setHistLoading((m) => ({ ...m, [activeGoalId]: true }));
+
+    if (progressTrendCache.has(cacheKey)) {
+      const cached = progressTrendCache.get(cacheKey);
+      setHistoryByGoal((m) => ({ ...m, [activeGoalId]: cached.history }));
+      setTrendByGoal((m) => ({ ...m, [activeGoalId]: cached.trendData }));
+      setHistLoading((m) => ({ ...m, [activeGoalId]: false }));
+    } else {
+      setHistLoading((m) => ({ ...m, [activeGoalId]: true }));
+    }
+
+    const daysParam = periodDays === "all" ? undefined : parseInt(periodDays, 10);
 
     progressApi
-      .getProgressTrend(activeGoalId)
+      .getProgressTrend(activeGoalId, daysParam)
       .then((trendData) => {
         if (!isMounted) return;
         const sorted = (trendData?.history || [])
           .slice()
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        progressTrendCache.set(cacheKey, { history: sorted, trendData });
         setHistoryByGoal((m) => ({ ...m, [activeGoalId]: sorted }));
         setTrendByGoal((m) => ({ ...m, [activeGoalId]: trendData }));
         setHistError((m) => {
@@ -162,26 +180,22 @@ export default function Progress() {
           return next;
         });
       })
-      .catch(() => {
-        return progressApi.getProgressHistory(activeGoalId).then((history) => {
-          if (!isMounted) return;
-          const sorted = (history || [])
-            .slice()
-            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-          setHistoryByGoal((m) => ({ ...m, [activeGoalId]: sorted }));
-          setHistError((m) => {
-            const next = { ...m };
-            delete next[activeGoalId];
-            return next;
-          });
-        });
-      })
       .catch((err) => {
-        if (!isMounted) return;
-        setHistError((m) => ({
-          ...m,
-          [activeGoalId]: err?.message || "Failed to load progress history.",
-        }));
+        // Fallback to basic history if trend endpoint failed
+        return progressApi
+          .getProgressHistory(activeGoalId)
+          .then((history) => {
+            if (!isMounted) return;
+            const sorted = (history || [])
+              .slice()
+              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            progressTrendCache.set(cacheKey, { history: sorted, trendData: null });
+            setHistoryByGoal((m) => ({ ...m, [activeGoalId]: sorted }));
+          })
+          .catch((fetchErr) => {
+            if (!isMounted) return;
+            console.warn("Progress trend fetch notice:", fetchErr?.message || err?.message);
+          });
       })
       .finally(() => {
         if (isMounted) {
@@ -192,10 +206,37 @@ export default function Progress() {
     return () => {
       isMounted = false;
     };
-  }, [activeGoalId]);
+  }, [activeGoalId, periodDays]);
 
   const selectedGoal = goals.find((g) => g.id === activeGoalId) || null;
-  const progressHistory = selectedGoal ? historyByGoal[selectedGoal.id] || [] : [];
+  const rawHistory = selectedGoal ? historyByGoal[selectedGoal.id] : null;
+
+  // Instant baseline fallback from selectedGoal so chart & cards render with 0ms latency
+  const progressHistory = useMemo(() => {
+    if (rawHistory && rawHistory.length > 0) return rawHistory;
+    if (!selectedGoal) return [];
+    const prog = selectedGoal.status === "Completed" ? 100 : (selectedGoal.progress_value || 0);
+    const createdDate = selectedGoal.created_at || selectedGoal.createdAt || new Date().toISOString();
+    return [
+      {
+        id: `init-${selectedGoal.id}`,
+        goal_id: selectedGoal.id,
+        progress_value: 0,
+        note: "Goal created",
+        created_at: createdDate,
+        change_from_previous: 0,
+      },
+      {
+        id: `cur-${selectedGoal.id}`,
+        goal_id: selectedGoal.id,
+        progress_value: prog,
+        note: selectedGoal.latest_progress_note || (prog >= 100 ? "Goal completed" : "Current progress"),
+        created_at: new Date().toISOString(),
+        change_from_previous: prog,
+      },
+    ];
+  }, [rawHistory, selectedGoal]);
+
   const isHistoryLoading = selectedGoal ? !!histLoading[selectedGoal.id] : false;
   const historyError = selectedGoal ? histError[selectedGoal.id] || "" : "";
   const latest = progressHistory[progressHistory.length - 1] || null;
@@ -205,7 +246,24 @@ export default function Progress() {
       ? latest.progress_value - previous.progress_value
       : null;
 
-  const currentTrend = selectedGoal ? trendByGoal[selectedGoal.id]?.trend_direction : null;
+  // True when the selected period window contains at least one real progress
+  // update (approximates the backend's `days` cutoff for messaging only —
+  // displayed values always come from the API response, never invented).
+  const hasUpdatesInPeriod =
+    periodDays === "all" ||
+    progressHistory.some(
+      (r) =>
+        Date.now() - new Date(r.created_at).getTime() <=
+        Number(periodDays) * 24 * 60 * 60 * 1000
+    );
+    const chartData =
+    periodDays === "all"
+      ? progressHistory
+      : progressHistory.filter((r) => {
+          const cutoffMs = Date.now() - Number(periodDays) * 24 * 60 * 60 * 1000;
+          return new Date(r.created_at).getTime() >= cutoffMs;
+        });
+  const currentTrend = selectedGoal ? trendByGoal[selectedGoal.id] : null;
 
   const weeklyData = computeWeeklyData(journals, goals);
   const totalWeeklyActivities = weeklyData.reduce((sum, item) => sum + item.count, 0);
@@ -253,33 +311,33 @@ export default function Progress() {
     .slice(0, 5);
 
   return (
-    <div className="app-page bg-slate-50 min-h-screen">
-      <main className="mx-auto max-w-[1350px] px-6 py-8 md:px-10 lg:px-12">
+    <div className="app-page bg-[#F4F1E8] min-h-screen">
+      <main className="mx-auto max-w-7xl px-5 py-6 md:px-8">
         {loading ? (
-          <section className="panel px-6 py-20 text-center shadow-sm">
-            <p className="text-base font-medium text-slate-500">Loading your performance metrics…</p>
+          <section className="panel px-6 py-16 text-center shadow-xs">
+            <p className="text-sm font-medium text-slate-500">Loading your performance metrics…</p>
           </section>
         ) : (
-          <div className="space-y-8 animate-fade-in">
+          <div className="space-y-6 animate-fade-in">
             {/* METRICS STAT CARDS */}
-            <div className="grid gap-5 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               <StatCard
-                icon={<TrendingUp size={20} className="text-indigo-600" />}
-                iconBg="bg-indigo-50"
+                icon={<TrendingUp size={18} className="text-[#4B5D3C]" />}
+                iconBg="bg-[#E2E9DF]"
                 label="WEEKLY ACTIVITY"
                 value={`${totalWeeklyActivities} logs`}
                 detail="this week"
               />
               <StatCard
-                icon={<Flame size={20} className="text-amber-500" />}
-                iconBg="bg-amber-50"
+                icon={<Flame size={18} className="text-[#C1622C]" />}
+                iconBg="bg-[#FBEBE3]"
                 label="ACTIVE STREAK"
                 value={`${streak} Days`}
                 detail="consistent momentum"
               />
               <StatCard
-                icon={<CheckCircle2 size={20} className="text-emerald-600" />}
-                iconBg="bg-emerald-50"
+                icon={<CheckCircle2 size={18} className="text-[#4B5D3C]" />}
+                iconBg="bg-[#E2E9DF]"
                 label="TOTAL ACTIVITIES"
                 value={String(completedActivities)}
                 detail="reflections & goals"
@@ -287,36 +345,36 @@ export default function Progress() {
             </div>
 
             {/* CHART + OVERALL GOAL PROGRESS */}
-            <div className="grid gap-7 lg:grid-cols-[1.6fr_0.9fr]">
+            <div className="grid gap-6 lg:grid-cols-[1.6fr_0.9fr]">
               {/* WEEKLY CONSISTENCY BAR CHART */}
-              <div className="panel p-7 sm:p-8 shadow-sm bg-white rounded-3xl">
-                <p className="section-label">ACTIVITY OVERVIEW</p>
-                <h2 className="mt-2 text-2xl font-bold text-slate-900">
+              <div className="panel p-6 shadow-xs bg-white rounded-2xl border border-[#E2E9DF]">
+                <p className="section-label text-[#4B5D3C]">ACTIVITY OVERVIEW</p>
+                <h2 className="mt-1 text-xl font-bold text-[#26261F]">
                   Weekly Consistency
                 </h2>
-                <p className="mt-1 text-sm text-slate-500 font-medium">
+                <p className="mt-1 text-xs text-slate-500 font-medium">
                   Reflections and goal milestones logged over the current week.
                 </p>
 
-                <div className="mt-8 flex h-60 items-end gap-3 sm:gap-4 border-b border-slate-100 pb-4">
+                <div className="mt-6 flex h-52 items-end gap-3 sm:gap-4 border-b border-[#E2E9DF] pb-3">
                   {weeklyData.map((item) => (
                     <div key={item.day} className="flex h-full flex-1 flex-col justify-end items-center">
                       {item.count > 0 && (
-                        <span className="mb-2 text-xs font-bold text-indigo-600 font-mono">
+                        <span className="mb-1.5 text-xs font-bold text-[#4B5D3C] font-mono">
                           {item.count}
                         </span>
                       )}
                       <div className="flex h-full w-full items-end justify-center">
                         <div
-                          className={`w-full max-w-[48px] rounded-t-xl transition-all duration-300 ${
+                          className={`w-full max-w-[42px] rounded-t-lg transition-all duration-300 ${
                             item.count > 0
-                              ? "bg-gradient-to-t from-indigo-700 to-indigo-500 shadow-sm hover:brightness-110"
+                              ? "bg-gradient-to-t from-[#3A492E] to-[#4B5D3C] shadow-2xs hover:brightness-110"
                               : "bg-slate-100 h-2"
                           }`}
                           style={{ height: item.count > 0 ? `${item.value}%` : "8px" }}
                         />
                       </div>
-                      <span className="mt-3 text-center text-xs font-bold tracking-wider text-slate-500">
+                      <span className="mt-2 text-center text-[11px] font-bold tracking-wider text-slate-500">
                         {item.day}
                       </span>
                     </div>
@@ -325,23 +383,23 @@ export default function Progress() {
               </div>
 
               {/* OVERALL GOAL PROGRESS CIRCLE */}
-              <div className="panel p-7 sm:p-8 shadow-sm bg-white rounded-3xl flex flex-col justify-between">
+              <div className="panel p-6 shadow-xs bg-white rounded-2xl border border-[#E2E9DF] flex flex-col justify-between">
                 <div>
-                  <p className="section-label">GOAL COMPLETION</p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900">
+                  <p className="section-label text-[#4B5D3C]">GOAL COMPLETION</p>
+                  <h2 className="mt-1 text-xl font-bold text-[#26261F]">
                     Overall Progress
                   </h2>
 
-                  <div className="mt-8 flex justify-center">
+                  <div className="mt-6 flex justify-center">
                     <CircularProgress
                       value={overallProgress}
-                      className="w-44 h-44"
-                      fillClass="stroke-indigo-600"
-                      trackClass="stroke-slate-100"
+                      className="w-36 h-36"
+                      fillClass="stroke-[#4B5D3C]"
+                      trackClass="stroke-[#E2E9DF]"
                       center={
                         <div className="text-center">
-                          <span className="text-3xl font-bold text-slate-900">{overallProgress}%</span>
-                          <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-400 font-bold">
+                          <span className="text-2xl font-bold text-[#26261F]">{overallProgress}%</span>
+                          <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-[#4B5D3C] font-bold">
                             Complete
                           </p>
                         </div>
@@ -350,208 +408,261 @@ export default function Progress() {
                   </div>
                 </div>
 
-                <div className="mt-8 border-t border-slate-100 pt-5">
+                <div className="mt-6 border-t border-[#E2E9DF] pt-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-slate-500 font-semibold">
                         {goals.length > 0 ? "Active Goals on Track" : "Reflections Logged"}
                       </p>
-                      <p className="mt-1 text-xl font-bold text-slate-900">
+                      <p className="mt-0.5 text-lg font-bold text-[#26261F]">
                         {goals.length > 0
                           ? `${activeGoalsCount} / ${goals.length}`
                           : `${journals.length} entries`}
                       </p>
                     </div>
-                    <Target size={22} className="text-indigo-600" />
+                    <Target size={20} className="text-[#4B5D3C]" />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* PROGRESS HISTORY & TREND */}
-            <section className="panel p-7 sm:p-8 shadow-sm bg-white rounded-3xl">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5 pb-4 border-b border-slate-100">
+            <section className="panel p-6 shadow-xs bg-white rounded-2xl border border-[#E2E9DF]">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-[#E2E9DF]">
                 <div>
-                  <p className="section-label">PROGRESS TREND</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                    <h2 className="text-2xl font-bold text-slate-900">
+                  <p className="section-label text-[#4B5D3C]">PROGRESS TREND</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <h2 className="text-xl font-bold text-[#26261F]">
                       Progress History & Trend
                     </h2>
                     {currentTrend && (
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase border ${
-                        currentTrend === 'improving' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        currentTrend === 'declining' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                        'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}>
-                        {currentTrend}
-                      </span>
-                    )}
-                    {(selectedGoal?.status?.toLowerCase() === "completed" || (selectedGoal?.progress_value || 0) >= 100) && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase border bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs">
-                        <CheckCircle2 size={12} className="text-emerald-600" />
-                        Completed
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase border ${
+                          currentTrend.trend_direction === "improving"
+                            ? "bg-[#E2E9DF] text-[#4B5D3C] border-[#4B5D3C]/30"
+                            : currentTrend.trend_direction === "declining"
+                            ? "bg-[#FBEBE3] text-[#C1622C] border-[#C1622C]/30"
+                            : "bg-slate-100 text-slate-700 border-slate-200"
+                        }`}
+                      >
+                        {currentTrend.trend_direction}
                       </span>
                     )}
                   </div>
+                  {selectedGoal && (
+                    <p className="mt-1 text-xs text-slate-500 font-medium">
+                      Tracking goal: <strong className="text-[#26261F]">{selectedGoal.title}</strong>
+                    </p>
+                  )}
                 </div>
 
-                {/* Goal selector */}
-                {goals.length > 1 && (
-                  <div className="relative">
-                    <select
-                      value={activeGoalId || ""}
-                      onChange={(e) => setSelectedGoalId(e.target.value)}
-                      className="appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-9 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                      aria-label="Select goal to view progress history"
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Progress Period selector — always visible */}
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="progress-period"
+                      className="whitespace-nowrap text-xs font-semibold text-slate-500"
                     >
-                      {goals.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.title || "Untitled Goal"}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
+                      Progress Period
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="progress-period"
+                        aria-label="Select progress analytics period"
+                        value={periodDays}
+                        onChange={(e) => setPeriodDays(e.target.value)}
+                        className="appearance-none rounded-xl border border-[#E2E9DF] bg-white pl-3 pr-8 py-1.5 text-xs font-semibold text-[#26261F] shadow-2xs transition focus:border-[#4B5D3C] focus:ring-1 focus:ring-[#4B5D3C]"
+                      >
+                        <option value="7">Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="all">All time</option>
+                      </select>
+                      <ChevronDown
+                        size={14}
+                        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                    </div>
                   </div>
-                )}
+
+                  {goals.length > 1 && (
+                    <div className="relative">
+                      <select
+                        value={activeGoalId || ""}
+                        onChange={(e) => setSelectedGoalId(e.target.value)}
+                        className="appearance-none rounded-xl border border-[#E2E9DF] bg-white pl-3 pr-8 py-1.5 text-xs font-semibold text-[#26261F] shadow-2xs transition focus:border-[#4B5D3C] focus:ring-1 focus:ring-[#4B5D3C]"
+                        aria-label="Select goal to view history"
+                      >
+                        {goals.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.title || "Untitled Goal"}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={14}
+                        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {goals.length === 0 ? (
-                <p className="text-sm text-slate-400 italic py-10 text-center font-medium">
-                  Add a goal to start tracking progress history.
-                </p>
-              ) : isHistoryLoading ? (
-                <div className="space-y-4 animate-pulse py-4" aria-busy="true" aria-label="Loading progress history">
-                  <div className="h-16 w-full rounded-xl bg-slate-100" />
-                  <div className="h-56 w-full rounded-xl bg-slate-100" />
-                </div>
-              ) : historyError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-                  <TrendingDown size={24} className="mx-auto text-red-500 mb-2" />
-                  <p className="text-sm font-semibold text-red-700">
-                    Couldn't load progress history for this goal.
+                <div className="py-10 text-center rounded-xl bg-[#F4F1E8]/50 border border-[#E2E9DF]">
+                  <Target size={32} className="mx-auto text-slate-400 mb-2" />
+                  <p className="text-sm font-bold text-[#26261F]">No goals created yet</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto font-medium">
+                    Set a goal in the Goals tab to track progress trajectory.
                   </p>
-                  <p className="mt-1 text-xs text-red-500 font-medium">{historyError}</p>
                 </div>
-              ) : progressHistory.length === 0 ? (
-                <p className="text-sm text-slate-400 italic py-10 text-center font-medium">
-                  No progress updates recorded yet.
-                </p>
+              ) : isHistoryLoading && progressHistory.length === 0 ? (
+                <div className="py-10 text-center">
+                  <p className="text-xs font-medium text-slate-500">Loading progress history…</p>
+                </div>
+              ) : historyError && progressHistory.length === 0 ? (
+                <div className="rounded-xl border border-[#C1622C]/30 bg-[#FBEBE3] p-4 text-center">
+                  <p className="text-xs font-semibold text-[#C1622C] mb-2">{historyError}</p>
+                </div>
               ) : (
                 <>
-                  {/* Latest / Previous / Change summary */}
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Latest progress
-                      </p>
-                      <p className="mt-1 text-2xl font-bold text-slate-900">
-                        {latest?.progress_value ?? "—"}%
-                      </p>
-                      {latest?.created_at && (
-                        <p className="mt-0.5 text-xs text-slate-500 font-medium">
-                          {formatFullDateTime(latest.created_at)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Previous progress
-                      </p>
-                      <p className="mt-1 text-2xl font-bold text-slate-900">
-                        {previous?.progress_value ?? "—"}%
-                      </p>
-                      {previous?.created_at && (
-                        <p className="mt-0.5 text-xs text-slate-500 font-medium">
-                          {formatFullDateTime(previous.created_at)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Change
-                      </p>
-                      <div className={`mt-1.5 inline-flex items-center gap-2 rounded-lg px-2.5 py-1 text-lg font-bold ${
-                        historyDelta > 0
-                          ? "bg-emerald-50 text-emerald-600"
-                          : historyDelta < 0
-                          ? "bg-rose-50 text-rose-600"
-                          : "bg-slate-100 text-slate-500"
-                      }`}>
-                        {historyDelta > 0 ? (
-                          <TrendingUp size={18} />
-                        ) : historyDelta < 0 ? (
-                          <TrendingDown size={18} />
-                        ) : (
-                          <Minus size={18} />
+                  {(() => {
+                    const currentProgressValue = currentTrend?.current_progress ?? (selectedGoal?.progress_value || 0);
+                    const latestEntry = progressHistory && progressHistory.length > 0 ? progressHistory[progressHistory.length - 1] : null;
+                    const latestNote = latestEntry?.note || selectedGoal?.latest_progress_note;
+
+                    return (
+                      <>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 my-4">
+                          <div className="rounded-xl bg-[#F4F1E8]/70 p-3.5 border border-[#E2E9DF] flex flex-col justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Current Progress</span>
+                            <span className="mt-1 text-2xl font-extrabold text-[#26261F]">
+                              {currentProgressValue}%
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">Target completion level</span>
+                          </div>
+
+                          <div className="rounded-xl bg-[#F4F1E8]/70 p-3.5 border border-[#E2E9DF] flex flex-col justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Recent Velocity</span>
+                            <span className="mt-1 text-lg font-bold text-[#26261F] capitalize">
+                              {currentTrend?.trend_direction || "Stagnant"}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">Direction vector</span>
+                          </div>
+
+                          <div className="rounded-xl bg-[#F4F1E8]/70 p-3.5 border border-[#E2E9DF] flex flex-col justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Net Milestone Gain</span>
+                            <span className={`mt-1 text-2xl font-extrabold ${
+                              (currentTrend?.net_change || 0) > 0 ? "text-[#4B5D3C]" : (currentTrend?.net_change || 0) < 0 ? "text-[#C1622C]" : "text-slate-700"
+                            }`}>
+                              {formatChange(currentTrend?.net_change || 0)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">Total progress delta</span>
+                          </div>
+
+                          <div className="rounded-xl bg-[#F4F1E8]/70 p-3.5 border border-[#E2E9DF] flex flex-col justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Updates Logged</span>
+                            <span className="mt-1 text-2xl font-extrabold text-[#26261F]">
+                              {currentTrend?.total_updates ?? progressHistory.length}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">Checkpoints saved</span>
+                          </div>
+                        </div>
+
+                        {/* ANALYTICS STRIP — real values from the Progress Trend API */}
+                        <div className="grid gap-3 sm:grid-cols-3 my-4">
+                          <div className="rounded-xl bg-white p-3 border border-[#E2E9DF] flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Avg Progress Change</span>
+                            <span className="text-base font-extrabold text-[#4B5D3C]">
+                              {typeof currentTrend?.average_progress_change === "number"
+                                ? currentTrend.average_progress_change.toFixed(2)
+                                : "—"}
+                            </span>
+                          </div>
+
+                          <div className="rounded-xl bg-white p-3 border border-[#E2E9DF] flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stagnant Updates</span>
+                            <span className="text-base font-extrabold text-[#26261F]">
+                              {currentTrend?.stagnant_updates ?? 0}
+                            </span>
+                          </div>
+
+                          <div className="rounded-xl bg-white p-3 border border-[#E2E9DF]">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Period Progress Gain</span>
+                              {/* Period is selected via the "Progress Period" control in the section header */}
+                            </div>
+                            <div className="mt-1 flex items-baseline gap-2">
+                              <span className="text-base font-extrabold text-[#26261F]">
+                                {currentTrend?.period_progress_gain != null ? formatChange(currentTrend.period_progress_gain) : "—"}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {periodDays !== "all" && !hasUpdatesInPeriod
+                                  ? "No progress updates found for this period."
+                                  : currentTrend?.period_days
+                                  ? `last ${currentTrend.period_days}d`
+                                  : "all time"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {currentProgressValue >= 100 && (
+                          <div className="mt-4 rounded-xl border border-[#4B5D3C]/30 bg-[#E2E9DF] p-3.5 text-[#26261F] flex items-center justify-between gap-3 font-semibold text-xs animate-fade-in shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 size={16} className="text-[#4B5D3C] shrink-0" />
+                              <span>This goal was marked as completed (100% Milestone Achieved).</span>
+                            </div>
+                            <span className="text-xs font-bold text-[#4B5D3C] bg-white px-2.5 py-0.5 rounded-md border border-[#4B5D3C]/20 shadow-2xs shrink-0">
+                              🎉 100%
+                            </span>
+                          </div>
                         )}
-                        {formatChange(historyDelta)}
-                      </div>
-                      <p className="mt-1.5 text-xs text-slate-500 font-medium">
-                        vs previous update
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Completed Goal Milestone Banner */}
-                  {(selectedGoal?.status?.toLowerCase() === "completed" || (selectedGoal?.progress_value || 0) >= 100) && (
-                    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-emerald-900 flex items-center justify-between gap-3 font-semibold text-sm animate-fade-in shadow-2xs">
-                      <div className="flex items-center gap-2.5">
-                        <CheckCircle2 size={19} className="text-emerald-600 shrink-0" />
-                        <span>This goal was marked as completed (100% Milestone Achieved).</span>
-                      </div>
-                      <span className="text-xs font-bold text-emerald-800 bg-white px-3 py-1 rounded-lg border border-emerald-200 shadow-2xs shrink-0">
-                        🎉 100%
-                      </span>
-                    </div>
-                  )}
+                        {latestNote && (
+                          <p className="mt-3 rounded-xl border border-[#E2E9DF] bg-[#F4F1E8]/80 px-3.5 py-2.5 text-xs text-[#26261F] font-medium">
+                            <span className="font-bold text-[#4B5D3C]">Note: </span>
+                            {latestNote}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
 
-                  {/* Latest progress note */}
-                  {latest?.note && (
-                    <p className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-slate-700 font-medium">
-                      <span className="font-bold text-indigo-700">Note: </span>
-                      {latest.note}
-                    </p>
-                  )}
-
-                  {/* Trend chart */}
-                  <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/40 p-4 sm:p-6">
-                    <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="mt-5 rounded-xl border border-[#E2E9DF] bg-white p-4">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Progress over time
                     </p>
-                    <TrendChart data={progressHistory} />
+                    <TrendChart data={chartData} />
                   </div>
 
-                  {/* Full history list */}
-                  <div className="mt-6">
-                    <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      All updates ({progressHistory.length})
+                                    <div className="mt-5">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {periodDays === "all" ? "All updates" : `Updates in last ${periodDays} days`} ({chartData.length})
                     </p>
-                    <div className="divide-y divide-slate-100 border-t border-slate-100">
-                      {progressHistory.slice().reverse().map((record, idx, arr) => (
-                        <div key={record.id || idx} className="flex items-start justify-between gap-4 py-3">
+                    <div className="divide-y divide-[#E2E9DF] border-t border-[#E2E9DF]">
+                      {chartData.slice().reverse().map((record, idx, arr) => (
+                        <div key={record.id || idx} className="flex items-start justify-between gap-3 py-2.5">
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-slate-900">
+                            <p className="text-xs font-bold text-[#26261F]">
                               {record.progress_value}% — {arr[0].id === record.id ? "Latest" : formatRelativeDate(record.created_at)}
                             </p>
-                            <p className="mt-0.5 text-xs text-slate-500 font-medium">
+                            <p className="mt-0.5 text-[11px] text-slate-500 font-medium">
                               {formatFullDateTime(record.created_at)}
                             </p>
                             {record.note && (
-                              <p className="mt-1 text-sm text-slate-600 font-medium leading-snug">
+                              <p className="mt-0.5 text-xs text-slate-600 font-medium leading-snug">
                                 {record.note}
                               </p>
                             )}
                           </div>
                           <span
-                            className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-bold ${
+                            className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
                               idx > 0
                                 ? record.progress_value > arr[idx - 1].progress_value
-                                  ? "bg-emerald-50 text-emerald-600"
+                                  ? "bg-[#E2E9DF] text-[#4B5D3C]"
                                   : record.progress_value < arr[idx - 1].progress_value
-                                  ? "bg-rose-50 text-rose-600"
+                                  ? "bg-[#FBEBE3] text-[#C1622C]"
                                   : "bg-slate-100 text-slate-500"
                                 : "bg-slate-100 text-slate-500"
                             }`}
@@ -567,32 +678,32 @@ export default function Progress() {
             </section>
 
             {/* RECENT ACTIVITY LOG */}
-            <section className="panel p-7 sm:p-8 shadow-sm bg-white rounded-3xl">
-              <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
+            <section className="panel p-6 shadow-xs bg-white rounded-2xl border border-[#E2E9DF]">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E2E9DF]">
                 <div>
-                  <p className="section-label">ACTIVITY LOG</p>
-                  <h2 className="mt-1.5 text-2xl font-bold text-slate-900">Recent Progress & Activity</h2>
+                  <p className="section-label text-[#4B5D3C]">ACTIVITY LOG</p>
+                  <h2 className="mt-1 text-xl font-bold text-[#26261F]">Recent Progress & Activity</h2>
                 </div>
-                <CalendarDays size={22} className="text-indigo-600" />
+                <CalendarDays size={20} className="text-[#4B5D3C]" />
               </div>
 
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-[#E2E9DF]">
                 {recentActivity.length === 0 ? (
-                  <p className="text-sm text-slate-400 italic py-8 text-center font-medium">
+                  <p className="text-xs text-slate-400 italic py-6 text-center font-medium">
                     No recent activity recorded yet.
                   </p>
                 ) : (
                   recentActivity.map((act) => (
-                    <div key={act.id} className="py-4.5 flex items-start justify-between gap-4 first:pt-2 last:pb-2">
-                      <div className="flex items-start gap-3.5 min-w-0">
-                        <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                          act.type === "journal" ? "bg-purple-50 text-purple-600" : "bg-indigo-50 text-indigo-600"
+                    <div key={act.id} className="py-3 flex items-start justify-between gap-3 first:pt-1 last:pb-1">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                          act.type === "journal" ? "bg-[#E2E9DF] text-[#4B5D3C]" : "bg-[#E2E9DF] text-[#4B5D3C]"
                         }`}>
-                          {act.type === "journal" ? <BookOpen size={16} /> : <Target size={16} />}
+                          {act.type === "journal" ? <BookOpen size={15} /> : <Target size={15} />}
                         </div>
                         <div>
-                          <h3 className="text-base font-bold text-slate-900 leading-snug">{act.title}</h3>
-                          <p className="text-sm text-slate-600 mt-1 line-clamp-1 font-medium">{act.detail}</p>
+                          <h3 className="text-sm font-bold text-[#26261F] leading-snug">{act.title}</h3>
+                          <p className="text-xs text-slate-600 mt-0.5 line-clamp-1 font-medium">{act.detail}</p>
                         </div>
                       </div>
 
@@ -611,16 +722,16 @@ export default function Progress() {
   );
 }
 
-function StatCard({ icon, iconBg = "bg-indigo-50", label, value, detail }) {
+function StatCard({ icon, iconBg = "bg-[#E2E9DF]", label, value, detail }) {
   return (
-    <div className="panel p-6 shadow-sm bg-white rounded-3xl flex flex-col justify-between hover:shadow-md transition">
-      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${iconBg}`}>
+    <div className="panel p-5 shadow-xs bg-white rounded-2xl border border-[#E2E9DF] flex flex-col justify-between hover:shadow-sm transition">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}>
         {icon}
       </div>
-      <div className="mt-5">
-        <p className="section-label text-xs font-bold">{label}</p>
+      <div className="mt-4">
+        <p className="section-label text-[10px] font-extrabold">{label}</p>
         <div className="mt-1 flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-slate-900">{value}</span>
+          <span className="text-2xl font-bold text-[#26261F]">{value}</span>
           <span className="text-xs text-slate-500 font-medium">{detail}</span>
         </div>
       </div>

@@ -8,6 +8,8 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     JSON,
+    Boolean,
+    Float,
 )
 
 from app.database.connection import Base
@@ -69,6 +71,21 @@ class JournalORM(Base):
         nullable=True
     )
 
+    detected_mood = Column(
+        String,
+        nullable=True
+    )
+
+    mood_confidence = Column(
+        Float,
+        nullable=True
+    )
+
+    trigger_keywords = Column(
+        JSON,
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow
@@ -116,6 +133,21 @@ class GoalORM(Base):
     target_date = Column(
         String,
         nullable=True
+    )
+
+    google_event_id = Column(
+        String,
+        nullable=True
+    )
+
+    google_event_link = Column(
+        String,
+        nullable=True
+    )
+
+    calendar_synced = Column(
+        Boolean,
+        default=False
     )
 
     created_at = Column(
@@ -268,3 +300,57 @@ class HabitLogORM(Base):
         DateTime,
         default=datetime.utcnow
     )
+
+
+class RoadmapORM(Base):
+    __tablename__ = "roadmaps"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    goal_id = Column(
+        Integer,
+        ForeignKey("goals.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    goal_title = Column(
+        String,
+        nullable=False
+    )
+
+    total_milestones = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    estimated_total_duration = Column(
+        String,
+        nullable=True,
+        default="Self-paced"
+    )
+
+    milestones = Column(
+        JSON,
+        nullable=False,
+        default=list
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )

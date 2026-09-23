@@ -11,6 +11,13 @@ import {
   Filter,
 } from 'lucide-react';
 
+const getLocalISODate = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const getGoalDeadlineStatus = (goal) => {
   // 1. Completed goals are never overdue
   const statusStr = typeof goal.status === 'string' ? goal.status.toLowerCase() : '';
@@ -75,7 +82,7 @@ export const getGoalDeadlineStatus = (goal) => {
   } else {
     return {
       category: 'Upcoming',
-      badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 font-medium',
+      badgeClass: 'bg-[#E2E9DF]/60 text-[#3A492E] border-[#E2E9DF] font-medium',
       isOverdue: false,
       isDueToday: false,
       daysRemaining: diffDays,
@@ -84,7 +91,12 @@ export const getGoalDeadlineStatus = (goal) => {
   }
 };
 
-export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEdit }) {
+export default function GoalCalendar({
+  goals = [],
+  onQuickStatusChange,
+  onOpenEdit,
+  onSyncGoal,
+}) {
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
   const [selectedDateStr, setSelectedDateStr] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
@@ -153,7 +165,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
 
   const goToToday = () => {
     setCurrentMonthDate(new Date());
-    setSelectedDateStr(new Date().toISOString().split('T')[0]);
+    setSelectedDateStr(getLocalISODate());
   };
 
   const year = currentMonthDate.getFullYear();
@@ -192,7 +204,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
             <h4 className="text-2xl font-bold text-slate-900 mt-1">{stats.totalWithDate}</h4>
             <p className="text-[11px] text-slate-500 font-medium">goals with target dates</p>
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E2E9DF]/60 text-[#3A492E]">
             <CalendarDays size={20} />
           </div>
         </div>
@@ -208,13 +220,13 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
           </div>
         </div>
 
-        <div className="panel p-5 shadow-sm border-indigo-200 bg-indigo-50/40 flex items-center justify-between rounded-2xl border">
+        <div className="panel p-5 shadow-sm border-[#E2E9DF] bg-[#E2E9DF]/40 flex items-center justify-between rounded-2xl border">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Upcoming Deadlines</p>
-            <h4 className="text-2xl font-bold text-indigo-700 mt-1">{stats.upcoming}</h4>
-            <p className="text-[11px] text-indigo-600 font-medium">scheduled in future</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#3A492E]">Upcoming Deadlines</p>
+            <h4 className="text-2xl font-bold text-[#3A492E] mt-1">{stats.upcoming}</h4>
+            <p className="text-[11px] text-[#4B5D3C] font-medium">scheduled in future</p>
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E2E9DF] text-[#3A492E]">
             <Clock size={20} />
           </div>
         </div>
@@ -268,7 +280,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
                     <button
                       onClick={() => onOpenEdit && onOpenEdit(goal)}
-                      className="text-xs font-semibold text-slate-600 hover:text-indigo-600"
+                      className="text-xs font-semibold text-slate-600 hover:text-[#4B5D3C]"
                     >
                       Reschedule
                     </button>
@@ -292,7 +304,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
         <section className="panel p-6 sm:p-7 shadow-sm bg-white border border-slate-200 rounded-3xl">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E2E9DF]/60 text-[#3A492E]">
                 <CalendarIcon size={20} />
               </div>
               <div>
@@ -340,7 +352,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                 onClick={() => setStatusFilter(st)}
                 className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
                   statusFilter === st
-                    ? 'bg-indigo-600 text-white font-bold shadow-sm'
+                    ? 'bg-[#4B5D3C] text-white font-bold shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -382,7 +394,8 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                 return g.status?.toLowerCase() === statusFilter.toLowerCase();
               });
 
-              const isTodayCell = dateKey === today.toISOString().split('T')[0];
+              const todayISO = getLocalISODate();
+              const isTodayCell = dateKey === todayISO;
               const isSelected = selectedDateStr === dateKey;
 
               return (
@@ -391,18 +404,18 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                   onClick={() => setSelectedDateStr(dateKey)}
                   className={`min-h-[72px] sm:min-h-[84px] rounded-2xl p-2 border transition cursor-pointer flex flex-col justify-between ${
                     isSelected
-                      ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/40 shadow-sm'
+                      ? 'border-[#4B5D3C] ring-2 ring-[#4B5D3C]/20 bg-[#E2E9DF]/40 shadow-sm'
                       : isTodayCell
-                      ? 'border-indigo-300 bg-indigo-50/20 font-bold'
+                      ? 'border-[#4B5D3C]/40 bg-[#E2E9DF]/20 font-bold'
                       : goalsOnDate.length > 0
-                      ? 'border-slate-300 bg-white hover:border-indigo-300 hover:shadow-sm'
+                      ? 'border-slate-300 bg-white hover:border-[#4B5D3C]/40 hover:shadow-sm'
                       : 'border-slate-100 bg-white hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold ${
-                        isTodayCell ? 'bg-indigo-600 text-white' : 'text-slate-700'
+                        isTodayCell ? 'bg-[#4B5D3C] text-white' : 'text-slate-700'
                       }`}
                     >
                       {cell.dayNumber}
@@ -444,10 +457,10 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
         <section className="space-y-6">
           {/* Selected Date Inspector Panel */}
           {selectedDateStr && (
-            <div className="panel p-6 shadow-sm bg-gradient-to-br from-indigo-50/60 to-white border border-indigo-200 rounded-3xl animate-fade-in">
-              <div className="flex items-center justify-between mb-3 border-b border-indigo-100 pb-3">
+            <div className="panel p-6 shadow-sm bg-gradient-to-br from-[#E2E9DF]/60 to-white border border-[#E2E9DF] rounded-3xl animate-fade-in">
+              <div className="flex items-center justify-between mb-3 border-b border-[#E2E9DF] pb-3">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#4B5D3C]">
                     Date Details
                   </span>
                   <h4 className="text-base font-bold text-slate-900">
@@ -476,7 +489,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                   {selectedDateGoals.map((g) => (
                     <div
                       key={g.id}
-                      className="p-3 bg-white border border-indigo-100 rounded-2xl shadow-sm hover:border-indigo-300 transition"
+                      className="p-3 bg-white border border-[#E2E9DF] rounded-2xl shadow-sm hover:border-[#4B5D3C]/40 transition"
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span
@@ -485,19 +498,40 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                               ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                               : g.status === 'Stalled'
                               ? 'bg-red-50 text-red-600 border border-red-200'
-                              : 'bg-indigo-50 text-indigo-600 border border-indigo-200'
+                              : 'bg-[#E2E9DF] text-[#3A492E] border border-[#E2E9DF]'
                           }`}
                         >
                           {g.status}
                         </span>
-                        {onOpenEdit && (
-                          <button
-                            onClick={() => onOpenEdit(g)}
-                            className="text-[11px] text-indigo-600 font-bold hover:underline"
-                          >
-                            Edit Goal
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {onSyncGoal && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSyncGoal(g);
+                              }}
+                              className={`text-[11px] font-bold inline-flex items-center gap-1 ${
+                                g.calendar_synced
+                                  ? 'text-emerald-600 hover:text-emerald-700'
+                                  : 'text-[#4B5D3C] hover:text-[#3A492E]'
+                              }`}
+                              title={g.calendar_synced ? 'Synced with Google Calendar' : 'Sync with Google Calendar'}
+                            >
+                              <CalendarIcon size={12} />
+                              <span>{g.calendar_synced ? 'Synced' : 'Sync'}</span>
+                            </button>
+                          )}
+                          {onOpenEdit && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenEdit(g)}
+                              className="text-[11px] text-slate-500 font-bold hover:underline"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <h5 className="text-sm font-bold text-slate-900">{g.title}</h5>
                       {g.description && (
@@ -514,7 +548,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
           <div className="panel p-6 shadow-sm bg-white border border-slate-200 rounded-3xl">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Clock size={18} className="text-indigo-600" />
+                <Clock size={18} className="text-[#4B5D3C]" />
                 <h4 className="text-base font-bold text-slate-900">Upcoming Timeline</h4>
               </div>
               <span className="text-xs font-bold text-slate-400 font-mono">
@@ -548,7 +582,7 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                                   ? 'bg-rose-50 text-rose-700 border-rose-200'
                                   : goal.priority.includes('Low')
                                   ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
                               }`}
                             >
                               {goal.priority}
@@ -577,13 +611,30 @@ export default function GoalCalendar({ goals = [], onQuickStatusChange, onOpenEd
                         </p>
                       </div>
 
-                      <button
-                        onClick={() => onQuickStatusChange && onQuickStatusChange(goal.id, 'Completed')}
-                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition shrink-0"
-                        title="Mark Completed"
-                      >
-                        <CheckCircle2 size={18} />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {onSyncGoal && (
+                          <button
+                            type="button"
+                            onClick={() => onSyncGoal(goal)}
+                            className={`p-1.5 rounded-lg transition ${
+                              goal.calendar_synced
+                                ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                                : 'text-slate-400 hover:text-[#4B5D3C] hover:bg-[#E2E9DF]/40'
+                            }`}
+                            title={goal.calendar_synced ? "Synced with Google Calendar" : "Sync with Google Calendar"}
+                          >
+                            <CalendarIcon size={16} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onQuickStatusChange && onQuickStatusChange(goal.id, 'Completed')}
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                          title="Mark Completed"
+                        >
+                          <CheckCircle2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}

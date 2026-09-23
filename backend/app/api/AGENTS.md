@@ -11,6 +11,11 @@ Define and handle all RESTful HTTP endpoints versioned under `/api/v1/`:
 - `v1/users.py`: Profile retrieval (`GET /me`) and updates (`PUT /me`).
 - `v1/journals.py`: Journal CRUD (`POST`, `GET`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`) and speech transcription (`POST /voice/transcribe`).
 - `v1/goals.py`: Goal lifecycle management (`GET`, `POST`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`).
+- `v1/coach.py`: Two-way conversational AI coaching chat (`POST /chat`).
+- `v1/habits.py`: Enriched habit tracker and daily check-offs (`GET /`, `POST /`, `POST /{id}/toggle`).
+- `v1/progress.py`: Goal progress recording and historical trends (`POST /record`, `GET /goal/{goal_id}/trend`).
+- `v1/productivity.py`: Personal Productivity Score calculation (`GET /productivity-score`).
+- `v1/roadmap.py`: AI learning roadmap generation and milestone check-off (`POST /generate`, `POST /{roadmap_id}/milestone/{milestone_id}/toggle`).
 - `v1/summaries.py`: Weekly AI accountability summaries (`GET /weekly`, `POST /weekly`).
 
 ---

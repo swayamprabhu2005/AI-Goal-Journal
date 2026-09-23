@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import VoiceRecorder from "../components/VoiceRecorder";
 import Pagination from "../components/Pagination";
+import MoodBadge from "../components/MoodBadge";
 import { journalApi, goalApi } from "../services/api";
 import { useData } from "../context/DataContext";
 import { useModal, useToast } from "../context/ModalContext";
@@ -32,6 +33,9 @@ export default function Journal() {
     addGoal,
     deleteJournalFromCache,
     fetchAllData,
+    recentlyCompletedGoal,
+    triggerGoalCompletion,
+    clearCompletedGoalTrigger,
   } = useData();
 
   const [activeTab, setActiveTab] = useState("text"); // 'text' | 'voice'
@@ -49,7 +53,6 @@ export default function Journal() {
   const [acceptingTitle, setAcceptingTitle] = useState(null);
 
   const resultsRef = useRef(null);
-  const historyListRef = useRef(null);
 
   const loadingList = !hasLoadedJournals;
 
@@ -87,6 +90,7 @@ export default function Journal() {
 
     setSubmitting(true);
     setLatestAnalysis(null);
+    const prevGoals = goals || [];
 
     try {
       const result = await journalApi.createJournal({
@@ -95,7 +99,39 @@ export default function Journal() {
       });
 
       addJournal(result);
+
+      // Fetch refreshed goals updated by AI analysis & progress increments
+      const updatedGoals = await goalApi.listGoals();
       await fetchAllData({ quiet: true });
+
+      // Detect any goal that reached 100% or was newly marked Completed
+      const newlyCompletedGoal = updatedGoals.find((ug) => {
+        const is100 = ug.progress_value >= 100 || ug.status === "Completed";
+        const prevGoal = prevGoals.find((g) => g.id === ug.id);
+        const wasNot100 = !prevGoal || (prevGoal.progress_value < 100 && prevGoal.status !== "Completed");
+        return is100 && wasNot100;
+      });
+
+      if (newlyCompletedGoal) {
+        triggerGoalCompletion(newlyCompletedGoal);
+      } else {
+        // Fallback: Check if AI updates indicate completion or user text mentions completion
+        const aiUpdates = result.ai_analysis?.progress_updates || [];
+        const hasCompletionUpdate = aiUpdates.some(
+          (pu) => pu.effort_level === "completion" || (pu.quantified_completed && pu.quantified_total && pu.quantified_completed >= pu.quantified_total)
+        );
+        const hasCompletionText = /goal (was|is)?\s*completed|completed (my|the)?\s*goal/i.test(content);
+
+        if (hasCompletionUpdate || hasCompletionText) {
+          const completedGoal = updatedGoals.find((g) => g.status === "Completed" || g.progress_value >= 100) || {
+            title: result.ai_analysis?.title || "Goal Milestone Accomplished!",
+            status: "Completed",
+            progress_value: 100,
+          };
+          triggerGoalCompletion(completedGoal);
+        }
+      }
+
       setLatestAnalysis(result.ai_analysis);
       setSelectedJournal(result);
       setShowCompose(false);
@@ -176,22 +212,6 @@ export default function Journal() {
       )
     : journals;
 
-  const totalPages = Math.max(1, Math.ceil(filteredJournals.length / itemsPerPage));
-
-  // Auto-clamp currentPage if deletions or filter changes reduce totalPages
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalPages, currentPage]);
-
-  // Reset scroll to top of reflection history when changing page
-  useEffect(() => {
-    if (historyListRef.current) {
-      historyListRef.current.scrollTop = 0;
-    }
-  }, [currentPage]);
-
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedJournals = filteredJournals.slice(startIndex, startIndex + itemsPerPage);
 
@@ -221,31 +241,29 @@ export default function Journal() {
   }
 
   return (
-    <div className="app-page bg-slate-50 min-h-screen">
-      <main className="mx-auto max-w-[1400px] w-full px-5 py-7 md:px-8 lg:px-10">
+    <div className="app-page min-h-screen bg-[#F4F1E8]">
+      <main className="mx-auto max-w-7xl w-full px-5 py-6 md:px-8">
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-600 font-medium">
+          <div className="mb-5 rounded-xl border border-[#C1622C]/30 bg-[#FBEBE3] px-4 py-3 text-xs text-[#C1622C] font-medium">
             <strong>Error: </strong> {error}
           </div>
         )}
 
-        {/* 2-COLUMN LAYOUT MATCHING IMAGE 2 PERFECTLY */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* LEFT MAIN WORKSPACE COLUMN ("TODAY'S ENTRY") */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-7 min-w-0">
-            {/* 1. WRITE REFLECTION PANEL (WHEN COMPOSE MODE IS ACTIVE) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT MAIN WORKSPACE COLUMN */}
+          <div className="lg:col-span-7 xl:col-span-8 space-y-6 min-w-0">
+            {/* 1. WRITE REFLECTION PANEL */}
             {showCompose && (
-              <section className="panel p-7 sm:p-9 shadow-sm bg-white border border-slate-200 rounded-3xl animate-rise relative overflow-hidden">
-                {/* Translucent Sheet Overlay during Gemini Analysis */}
+              <section className="panel p-6 sm:p-7 shadow-xs bg-white border border-[#E2E9DF] rounded-2xl animate-rise relative overflow-hidden">
                 {submitting && (
-                  <div className="absolute inset-0 z-20 bg-white/85 backdrop-blur-[2px] rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-fade-in select-none">
-                    <div className="relative mb-5 flex items-center justify-center">
-                      <div className="h-16 w-16 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
+                  <div className="absolute inset-0 z-20 bg-white/85 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center p-6 text-center animate-fade-in select-none">
+                    <div className="relative mb-4 flex items-center justify-center">
+                      <div className="h-14 w-14 rounded-full border-4 border-[#E2E9DF] border-t-[#4B5D3C] animate-spin" />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Sparkles size={24} className="text-indigo-600 animate-pulse" />
+                        <Sparkles size={20} className="text-[#4B5D3C] animate-pulse" />
                       </div>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-1.5">
+                    <h3 className="text-base font-bold text-[#26261F] mb-1.5 font-serif">
                       Analyzing reflection with Gemini...
                     </h3>
                     <p className="text-xs text-slate-500 max-w-sm font-medium leading-relaxed">
@@ -254,54 +272,53 @@ export default function Journal() {
                   </div>
                 )}
 
-                {/* Top Sub-Header Bar inside Card */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-[#E2E9DF]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#4B5D3C]">
                       TODAY'S AI JOURNAL ENTRY
                     </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#4B5D3C] font-semibold bg-[#E2E9DF] px-2.5 py-0.5 rounded-full border border-[#4B5D3C]/20">
                       ☁ Autosaved
                     </span>
                   </div>
 
                   {/* Mode Switcher Pills */}
-                  <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 p-1 self-start sm:self-auto">
+                  <div className="flex items-center gap-1 rounded-xl border border-[#E2E9DF] bg-[#F4F1E8] p-1 self-start sm:self-auto">
                     <button
                       onClick={() => setActiveTab("text")}
                       disabled={submitting}
-                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                      className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
                         activeTab === "text"
-                          ? "bg-indigo-600 text-white shadow-sm font-bold"
-                          : "text-slate-600 hover:text-slate-900"
+                          ? "bg-[#4B5D3C] text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-[#26261F]"
                       } ${submitting ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
-                      <FileText size={16} />
+                      <FileText size={15} />
                       Text Mode
                     </button>
                     <button
                       onClick={() => setActiveTab("voice")}
                       disabled={submitting}
-                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                      className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
                         activeTab === "voice"
-                          ? "bg-indigo-600 text-white shadow-sm font-bold"
-                          : "text-slate-600 hover:text-slate-900"
+                          ? "bg-[#4B5D3C] text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-[#26261F]"
                       } ${submitting ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
-                      <Mic size={16} />
+                      <Mic size={15} />
                       Voice Mode (Whisper)
                     </button>
                   </div>
                 </div>
 
                 {/* Main Headline Date */}
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4 tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-bold text-[#26261F] font-serif mb-3 tracking-tight">
                   Writing {todayFormatted}
                 </h2>
 
                 {/* Reflection Workspace Content */}
                 {activeTab === "voice" ? (
-                  <div className="mb-6">
+                  <div className="mb-5">
                     <VoiceRecorder
                       onTranscriptReady={handleVoiceTranscriptReady}
                       onDirectSubmit={(text) => handleSave(text, "voice")}
@@ -309,58 +326,58 @@ export default function Journal() {
                     />
                   </div>
                 ) : (
-                  <div className="mb-6">
+                  <div className="mb-5">
                     <textarea
-                      rows={7}
+                      rows={6}
                       value={entryText}
                       onChange={(e) => setEntryText(e.target.value)}
                       disabled={submitting}
                       readOnly={submitting}
-                      className="w-full p-5 text-base text-slate-800 placeholder:text-slate-400 leading-relaxed bg-white border border-slate-200 rounded-2xl outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 disabled:bg-slate-50/80 disabled:cursor-not-allowed disabled:text-slate-500 disabled:select-none"
+                      className="w-full p-4 text-sm text-[#26261F] placeholder:text-slate-400 leading-relaxed bg-white border border-[#E2E9DF] rounded-xl outline-none transition-all duration-200 focus:border-[#4B5D3C] focus:ring-2 focus:ring-[#4B5D3C]/20 disabled:bg-[#F4F1E8]/70 disabled:cursor-not-allowed disabled:text-slate-500 disabled:select-none"
                       placeholder="Today I managed to build... Mention specific hours, goal progress, or task blockers."
                     />
                   </div>
                 )}
 
-                {/* Image 2 Tip Banner */}
-                <div className="rounded-2xl bg-purple-50/70 border border-purple-100 p-4 mb-6 text-sm text-purple-800 flex items-center gap-3 font-medium">
-                  <Sparkles size={18} className="text-purple-600 shrink-0 animate-pulse" />
+                {/* Tip Banner */}
+                <div className="rounded-xl bg-[#E2E9DF]/70 border border-[#E2E9DF] p-3 mb-5 text-xs text-[#26261F] flex items-center gap-2.5 font-medium">
+                  <Sparkles size={16} className="text-[#4B5D3C] shrink-0 animate-pulse" />
                   <span>
                     <strong>Tip:</strong> Mention specific hours and task blocker details for more detailed AI Coaching feedback.
                   </span>
                 </div>
 
-                {/* Bottom Action Footer matching Image 2 */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-slate-100">
-                  <div className="text-sm text-slate-400 font-medium font-mono">
+                {/* Bottom Action Footer */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#E2E9DF]">
+                  <div className="text-xs text-slate-400 font-medium font-mono">
                     {charCount} characters • {wordCount} words
                   </div>
 
                   <button
                     onClick={() => handleSave(entryText, "text")}
                     disabled={submitting || !entryText.trim()}
-                    className="primary-button px-6 py-3.5 text-sm font-bold shadow-md hover:shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="primary-button px-5 py-2.5 text-xs sm:text-sm font-bold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Sparkles size={17} />
+                    <Sparkles size={16} />
                     {submitting ? "Analyzing with Gemini..." : "Analyze Entry ✨"}
                   </button>
                 </div>
               </section>
             )}
 
-            {/* 2. IN-PLACE TRANSITION BANNER (WHEN REVIEWING AN ENTRY'S EXTRACTION) */}
+            {/* 2. IN-PLACE TRANSITION BANNER */}
             {!showCompose && (latestAnalysis || selectedJournal?.ai_analysis) && (
-              <div className="panel p-6 bg-gradient-to-r from-indigo-50/90 via-purple-50/50 to-indigo-50/90 border border-indigo-100 rounded-3xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-                <div className="space-y-1.5 min-w-0 flex-1">
+              <div className="panel p-5 bg-gradient-to-r from-[#E2E9DF]/80 via-white to-[#F4F1E8] border border-[#E2E9DF] rounded-2xl shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+                <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
-                      <Sparkles size={15} className="text-indigo-600" /> Active Reflection Analysis
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#4B5D3C] flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-[#4B5D3C]" /> Active Reflection Analysis
                     </span>
                     <span className="text-xs text-slate-400 font-medium">
                       • {selectedJournal ? new Date(selectedJournal.created_at || selectedJournal.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : todayFormatted}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-slate-700 line-clamp-2 italic leading-relaxed">
+                  <p className="text-xs font-medium text-slate-700 line-clamp-2 italic leading-relaxed">
                     "{selectedJournal?.content || "Your journal entry was analyzed and goals/activities tracked."}"
                   </p>
                 </div>
@@ -372,14 +389,14 @@ export default function Journal() {
                     setSelectedJournal(null);
                     setEntryText("");
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-sm active:scale-95 shrink-0 self-start sm:self-center"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#4B5D3C] hover:bg-[#3A492E] text-white px-3.5 py-2 text-xs font-bold transition shadow-2xs shrink-0 self-start sm:self-center"
                 >
-                  <Plus size={15} /> Write New Reflection
+                  <Plus size={14} /> Write New Reflection
                 </button>
               </div>
             )}
 
-            {/* LATEST AI EXTRACTION BANNER MATCHING SCREENSHOT */}
+            {/* LATEST AI EXTRACTION BANNER */}
             {(latestAnalysis || selectedJournal?.ai_analysis) && (() => {
               const currentAi = latestAnalysis || selectedJournal?.ai_analysis;
               const goalsExtractedList = currentAi.goalsExtracted || currentAi.goals || [];
@@ -387,34 +404,54 @@ export default function Journal() {
               const blockersList = currentAi.blockers || [];
 
               return (
-                <section ref={resultsRef} className="rounded-3xl p-7 bg-slate-50 border border-slate-200/90 shadow-sm animate-fade-in space-y-6">
-                  {/* Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 pb-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-2">
-                      <Sparkles size={18} className="text-indigo-600" /> AI Structured Journal Extraction
+                <section ref={resultsRef} className="rounded-2xl p-6 bg-white border border-[#E2E9DF] shadow-xs animate-fade-in space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E9DF] pb-3">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#4B5D3C] flex items-center gap-2">
+                      <Sparkles size={16} className="text-[#4B5D3C]" /> AI Structured Journal Extraction
                     </h3>
 
                     {autoCreatedGoals.length > 0 && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
-                        <CheckCircle2 size={14} className="text-emerald-600" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E2E9DF] px-3 py-0.5 text-xs font-bold text-[#4B5D3C] border border-[#4B5D3C]/20">
+                        <CheckCircle2 size={13} className="text-[#4B5D3C]" />
                         {autoCreatedGoals.length} Goal{autoCreatedGoals.length > 1 ? "s" : ""} Auto-Created!
                       </span>
                     )}
                   </div>
 
                   {currentAi.quick_summary && (
-                    <p className="text-base font-semibold text-slate-800 italic">
+                    <p className="text-sm font-semibold text-[#26261F] italic leading-relaxed">
                       "{currentAi.quick_summary}"
                     </p>
                   )}
 
-                  {/* 1. GOALS EXTRACTED & TRACKED (SPACIOUS VERTICAL STACK) */}
+                  {/* EMOTIONAL STATE PULSE (NEURAL MOOD ANALYZER) */}
+                  {(currentAi.detected_mood || selectedJournal?.detected_mood) && (
+                    <div className="rounded-xl bg-[#F4F1E8]/70 border border-[#E2E9DF] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#4B5D3C]">
+                            Detected Emotional Rhythm
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            (10-Class Attention BiLSTM)
+                          </span>
+                        </div>
+                        <MoodBadge
+                          mood={currentAi.detected_mood || selectedJournal?.detected_mood}
+                          confidence={currentAi.mood_confidence || selectedJournal?.mood_confidence}
+                          keywords={currentAi.trigger_keywords || selectedJournal?.trigger_keywords}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 1. GOALS EXTRACTED */}
                   {goalsExtractedList.length > 0 && (
                     <div>
-                      <h4 className="text-base font-bold text-slate-900 mb-3.5">
+                      <h4 className="text-sm font-bold text-[#26261F] mb-3">
                         Goals Extracted & Tracked
                       </h4>
-                      <div className="flex flex-col gap-3.5">
+                      <div className="flex flex-col gap-3">
                         {goalsExtractedList.map((g, idx) => {
                           const rawConf = g.confidence_pct ?? g.confidence ?? 90;
                           const conf = typeof rawConf === 'number' && rawConf <= 1.0 ? Math.round(rawConf * 100) : Math.round(Number(rawConf) || 90);
@@ -427,20 +464,19 @@ export default function Journal() {
                           return (
                             <div
                               key={idx}
-                              className="rounded-2xl bg-white p-5 border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                              className="rounded-xl bg-[#F4F1E8]/60 p-4 border border-[#E2E9DF] shadow-2xs hover:border-[#4B5D3C]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                             >
-                              {/* Left Details */}
-                              <div className="space-y-1.5 min-w-0 flex-1">
-                                <div className="flex items-center gap-2.5 flex-wrap">
-                                  <div className="flex items-center gap-2 font-bold text-slate-900 text-base">
-                                    <Flag size={18} className="text-indigo-600 shrink-0" />
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1.5 font-bold text-[#26261F] text-sm">
+                                    <Flag size={16} className="text-[#4B5D3C] shrink-0" />
                                     <span>{goalTitle}</span>
                                   </div>
-                                  <span className="shrink-0 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-600 border border-indigo-100">
+                                  <span className="shrink-0 rounded-full bg-[#E2E9DF] px-2 py-0.5 text-[10px] font-bold text-[#4B5D3C] border border-[#4B5D3C]/20">
                                     {conf}% Confidence
                                   </span>
                                   {g.category && (
-                                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
                                       {g.category}
                                     </span>
                                   )}
@@ -451,11 +487,10 @@ export default function Journal() {
                                 </p>
                               </div>
 
-                              {/* Right Action Button */}
                               <div className="shrink-0 flex items-center justify-end sm:self-center">
                                 {isRegistered ? (
-                                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200">
-                                    <CheckCircle2 size={14} className="text-emerald-600" />
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#E2E9DF] text-[#4B5D3C] font-bold text-xs border border-[#4B5D3C]/20">
+                                    <CheckCircle2 size={13} className="text-[#4B5D3C]" />
                                     Goal Registered
                                   </span>
                                 ) : (
@@ -463,12 +498,12 @@ export default function Journal() {
                                     type="button"
                                     disabled={isProcessing}
                                     onClick={() => handleAcceptGoal(g)}
-                                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
+                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#4B5D3C] hover:bg-[#3A492E] active:scale-95 disabled:opacity-50 text-white font-semibold text-xs shadow-2xs transition-all cursor-pointer"
                                   >
                                     {isProcessing ? (
                                       <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent shrink-0" />
                                     ) : (
-                                      <Plus size={15} />
+                                      <Plus size={14} />
                                     )}
                                     Accept Goal
                                   </button>
@@ -481,17 +516,17 @@ export default function Journal() {
                     </div>
                   )}
 
-                  {/* 2. DETECTED COMPLETED TASKS (MATCHING SCREENSHOT) */}
+                  {/* 2. DETECTED COMPLETED TASKS */}
                   {completedTasksList.length > 0 && (
-                    <div className="rounded-2xl bg-white p-5 border border-slate-200 shadow-2xs">
-                      <h4 className="text-base font-bold text-slate-900 mb-3">
+                    <div className="rounded-xl bg-[#F4F1E8]/60 p-4 border border-[#E2E9DF] shadow-2xs">
+                      <h4 className="text-sm font-bold text-[#26261F] mb-2.5">
                         Detected Completed Tasks
                       </h4>
                       <ul className="space-y-2 text-xs text-slate-700 font-medium">
                         {completedTasksList.map((taskText, idx) => (
-                          <li key={idx} className="flex items-start gap-2.5">
-                            <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-                            <span className="text-sm font-medium text-slate-700">{taskText}</span>
+                          <li key={idx} className="flex items-start gap-2">
+                            <CheckCircle2 size={15} className="text-[#4B5D3C] shrink-0 mt-0.5" />
+                            <span className="text-xs font-medium text-[#26261F]">{taskText}</span>
                           </li>
                         ))}
                       </ul>
@@ -500,14 +535,14 @@ export default function Journal() {
 
                   {/* 3. ACTIVE BLOCKERS DETECTED */}
                   {blockersList.length > 0 && (
-                    <div className="rounded-2xl bg-red-50/80 p-5 border border-red-200">
-                      <h4 className="text-xs font-bold text-red-700 uppercase tracking-wider mb-2">
+                    <div className="rounded-xl bg-[#FBEBE3] p-4 border border-[#C1622C]/20">
+                      <h4 className="text-xs font-bold text-[#C1622C] uppercase tracking-wider mb-2">
                         Active Blockers Detected
                       </h4>
-                      <ul className="space-y-2 text-xs text-red-700 font-medium">
+                      <ul className="space-y-1.5 text-xs text-[#C1622C] font-medium">
                         {blockersList.map((b, idx) => (
                           <li key={idx} className="flex items-center gap-2">
-                            <AlertTriangle size={15} className="text-red-500 shrink-0" />
+                            <AlertTriangle size={14} className="text-[#C1622C] shrink-0" />
                             <span>{b.text || b.description}</span>
                           </li>
                         ))}
@@ -519,38 +554,38 @@ export default function Journal() {
             })()}
           </div>
 
-          {/* RIGHT SIDEBAR COLUMN ("AI Journal History") MATCHING IMAGE 2 */}
+          {/* RIGHT SIDEBAR COLUMN ("AI Journal History") */}
           <div className="lg:col-span-5 xl:col-span-4 min-w-0">
-            <section className="sticky top-24 panel p-6 sm:p-7 shadow-sm bg-white border border-slate-200 rounded-3xl overflow-hidden min-w-0">
-              <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
-                <h2 className="text-lg font-bold text-slate-900">
+            <section className="sticky top-24 panel p-5 sm:p-6 shadow-xs bg-white border border-[#E2E9DF] rounded-2xl overflow-hidden min-w-0">
+              <div className="flex items-center justify-between gap-3 mb-3.5 pb-2.5 border-b border-[#E2E9DF]">
+                <h2 className="text-base font-bold text-[#26261F]">
                   AI Journal History ({journals.length})
                 </h2>
               </div>
 
-              {/* Full-width responsive search bar */}
-              <div className="relative mb-5">
+              {/* Search Bar */}
+              <div className="relative mb-4">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search AI Journal entries..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-900 outline-none focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-100 transition shadow-2xs"
+                  className="w-full rounded-xl border border-[#E2E9DF] bg-[#F4F1E8]/70 py-2 pl-9 pr-3 text-xs text-[#26261F] outline-none focus:border-[#4B5D3C] focus:bg-white focus:ring-1 focus:ring-[#4B5D3C]/20 transition shadow-2xs"
                 />
               </div>
 
               {loadingList ? (
                 <JournalLoadingState />
               ) : hasLoadedJournals && filteredJournals.length === 0 ? (
-                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
-                  <BookOpen size={32} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-base text-slate-900 font-bold">No AI Journal entries found</p>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">Record your daily reflections above to populate your AI Journal archive.</p>
+                <div className="p-6 text-center bg-[#F4F1E8]/50 rounded-xl border border-[#E2E9DF]">
+                  <BookOpen size={28} className="mx-auto text-slate-400 mb-2" />
+                  <p className="text-sm text-[#26261F] font-bold">No AI Journal entries found</p>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">Record your daily reflections to populate your archive.</p>
                 </div>
               ) : (
                 <>
-                  <div ref={historyListRef} className="flex flex-col gap-4 max-h-[720px] overflow-y-auto pr-1 animate-fade-in">
+                  <div className="flex flex-col gap-3 max-h-[640px] overflow-y-auto pr-1 animate-fade-in">
                     {paginatedJournals.map((j) => {
                       const tags = getTagsForJournal(j);
                       const emoji = getEmojiForJournal(j);
@@ -562,39 +597,54 @@ export default function Journal() {
                             setLatestAnalysis(j.ai_analysis);
                             setShowCompose(false);
                           }}
-                          className={`group rounded-2xl p-5 border transition-all duration-200 cursor-pointer ${
+                          className={`group rounded-xl p-4 border transition-all duration-200 cursor-pointer ${
                             selectedJournal?.id === j.id
-                              ? "border-indigo-500 bg-indigo-50/40 ring-2 ring-indigo-100 shadow-sm"
-                              : "border-slate-200 bg-slate-50/60 hover:bg-white hover:border-indigo-300 hover:shadow-md"
+                              ? "border-[#4B5D3C] bg-[#E2E9DF]/50 ring-2 ring-[#4B5D3C]/20 shadow-xs"
+                              : "border-[#E2E9DF] bg-[#F4F1E8]/40 hover:bg-white hover:border-[#4B5D3C]/40 hover:shadow-xs"
                           }`}
                         >
-                          {/* Top row: Date & Emoji */}
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                              <Calendar size={14} className="text-indigo-600" />
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold text-[#26261F] flex items-center gap-1.5">
+                              <Calendar size={13} className="text-[#4B5D3C]" />
                               {new Date(j.created_at || j.createdAt).toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
                               })}
                             </span>
-                            <span className="text-base bg-white rounded-lg px-2 py-0.5 border border-slate-200 shadow-2xs">
-                              {emoji}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {j.detected_mood && (
+                                <MoodBadge
+                                  mood={j.detected_mood}
+                                  confidence={j.mood_confidence}
+                                  size="sm"
+                                  showKeywords={false}
+                                />
+                              )}
+                              <span className="text-xs bg-white rounded-md px-1.5 py-0.5 border border-[#E2E9DF] shadow-2xs">
+                                {emoji}
+                              </span>
+                            </div>
                           </div>
 
-                          {/* Content Excerpt */}
-                          <p className="text-sm text-slate-600 line-clamp-3 leading-relaxed font-medium mb-3">
+                          <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed font-medium mb-2.5">
                             {j.content}
                           </p>
 
-                          {/* Tag Pills matching Image 2 */}
-                          <div className="flex items-center justify-between pt-3 border-t border-slate-200/80">
-                            <div className="flex flex-wrap items-center gap-1.5">
+                          <div className="flex items-center justify-between pt-2 border-t border-[#E2E9DF]">
+                            <div className="flex flex-wrap items-center gap-1">
+                              {j.trigger_keywords?.slice(0, 2).map((kw, i) => (
+                                <span
+                                  key={`kw-${i}`}
+                                  className="rounded-md bg-emerald-50 text-emerald-800 px-1.5 py-0.5 text-[9px] font-semibold border border-emerald-200"
+                                >
+                                  #{kw}
+                                </span>
+                              ))}
                               {tags.map((tag, idx) => (
                                 <span
                                   key={idx}
-                                  className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 border border-slate-200 shadow-2xs"
+                                  className="rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold text-[#26261F] border border-[#E2E9DF]"
                                 >
                                   {tag}
                                 </span>
@@ -606,10 +656,10 @@ export default function Journal() {
                                 e.stopPropagation();
                                 handleDeleteJournal(j.id);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
                               title="Delete AI Journal Entry"
                             >
-                              <Trash2 size={15} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </div>

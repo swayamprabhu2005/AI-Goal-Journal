@@ -22,6 +22,7 @@ import {
   fromISODate,
 } from "../utils/habitStorage";
 import { habitApi } from "../services/api";
+import { useData } from "../context/DataContext";
 import { spawnGrowthParticles, popIn, floatLoop } from "../animations/motion";
 
 /**
@@ -62,12 +63,13 @@ function StatCard({ icon: Icon, iconClass, value, label }) {
 }
 
 export default function Habits() {
-  const [habits, setHabits] = useState([]);
+  const { habits: contextHabits, hasLoadedHabits, setHabitsInCache } = useData();
+  const [habits, setHabits] = useState(contextHabits || []);
   const [completions, setCompletions] = useState({});
   const [statusMap, setStatusMap] = useState({});
 
   // Page async state
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasLoadedHabits && (!contextHabits || contextHabits.length === 0));
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -87,7 +89,6 @@ export default function Habits() {
   const [actionError, setActionError] = useState("");
   const [pendingToggles, setPendingToggles] = useState({});
 
-  const today = todayISO();
   const [weekOffset, setWeekOffset] = useState(0);
   const week = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const weekRangeLabel = useMemo(() => {
@@ -131,43 +132,54 @@ export default function Habits() {
     if (logs) setCompletions((m) => ({ ...m, [habitId]: logsToDates(logs) }));
   }
 
-  // Initial load: fetch habits + per-habit status and completion logs.
+  // Initial load: parse enriched habits or fetch from API
   useEffect(() => {
     let isMounted = true;
     async function load() {
-      setLoading(true);
+      if (!hasLoadedHabits && habits.length === 0) {
+        setLoading(true);
+      }
       setLoadError("");
       try {
         const habitList = await habitApi.listHabits();
         if (!isMounted) return;
 
-        // Eagerly set habits and dismiss skeleton loading immediately!
         setHabits(habitList || []);
+        if (setHabitsInCache) setHabitsInCache(habitList || []);
         setLoading(false);
 
         if (!habitList || habitList.length === 0) return;
 
-        // Fetch per-habit status and completion history in parallel
-        const enriched = await Promise.all(
-          habitList.map(async (h) => {
-            const [status, logs] = await Promise.all([
-              habitApi.getHabitStatus(h.id).catch(() => null),
-              habitApi.getHabitLogs(h.id).catch(() => null),
-            ]);
-            return { habit: h, status, logs: logsToDates(logs) };
-          })
-        );
-        if (!isMounted) return;
-
         const nextStatus = {};
         const nextCompletions = {};
-        enriched.forEach(({ habit, status, logs }) => {
-          if (status) nextStatus[habit.id] = status;
-          if (logs) nextCompletions[habit.id] = logs;
+        const needsFetch = [];
+
+        habitList.forEach((h) => {
+          if (h.completed_today !== undefined && h.current_streak !== undefined) {
+            nextStatus[h.id] = { completed_today: h.completed_today, current_streak: h.current_streak };
+            nextCompletions[h.id] = logsToDates(h.recent_logs || []);
+          } else {
+            needsFetch.push(h);
+          }
         });
 
-        setStatusMap(nextStatus);
-        setCompletions(nextCompletions);
+        if (needsFetch.length > 0) {
+          await Promise.all(
+            needsFetch.map(async (h) => {
+              const [status, logs] = await Promise.all([
+                habitApi.getHabitStatus(h.id).catch(() => null),
+                habitApi.getHabitLogs(h.id).catch(() => null),
+              ]);
+              if (status) nextStatus[h.id] = status;
+              if (logs) nextCompletions[h.id] = logsToDates(logs);
+            })
+          );
+        }
+
+        if (isMounted) {
+          setStatusMap(nextStatus);
+          setCompletions(nextCompletions);
+        }
       } catch (err) {
         if (err?.name === "AbortError" || err?.message?.includes("aborted")) {
           return;
@@ -277,6 +289,11 @@ export default function Habits() {
       return;
     }
 
+    // One-Way Daily Completion Lock: Once completed today, cannot be untoggled
+    if (!isCompleting) {
+      return;
+    }
+
     const toggleKey = `${habitId}_${date}`;
     if (pendingToggles[toggleKey]) return; // prevent duplicate clicks while pending
 
@@ -337,6 +354,8 @@ export default function Habits() {
     }
   }
 
+  const today = todayISO();
+
   // Gentle float for the empty-state icon while no habits exist.
   useEffect(() => {
     if (habits.length > 0) return;
@@ -347,12 +366,12 @@ export default function Habits() {
 
 
   return (
-    <div className="app-page min-h-screen bg-slate-50 relative" data-particle-scope>
-      <main className="mx-auto max-w-[1250px] px-5 py-7 md:px-8 lg:px-10 animate-rise">
+    <div className="app-page min-h-screen bg-[#EEF3EC] relative" data-particle-scope>
+      <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8 animate-rise">
         {/* PAGE HEADER */}
         <header className="flex flex-wrap items-center justify-between gap-4 mb-7">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-[#26261F] tracking-tight">
             Habit Tracker
           </h1>
           <p className="text-sm text-slate-500 font-medium mt-1">
@@ -362,7 +381,7 @@ export default function Habits() {
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#4B5D3C] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3A492E] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5D3C] focus-visible:ring-offset-2"
         >
           <Plus size={17} />
           Add Habit
@@ -417,7 +436,7 @@ export default function Habits() {
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         <StatCard
           icon={Repeat}
-          iconClass="bg-indigo-50 border-indigo-100 text-indigo-600"
+          iconClass="bg-[#E2E9DF]/60 border-[#E2E9DF] text-[#3A492E]"
           value={stats.totalHabits}
           label="Total Habits"
         />
@@ -429,7 +448,7 @@ export default function Habits() {
         />
         <StatCard
           icon={Flame}
-          iconClass="bg-orange-50 border-orange-100 text-orange-600"
+          iconClass="bg-amber-50 border-amber-100 text-amber-600"
           value={stats.activeStreaks}
           label="Active Streaks"
         />
@@ -444,10 +463,10 @@ export default function Habits() {
       {/* HABIT LIST */}
       {habits.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm animate-fade-in">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-100 shadow-sm mb-5">
-            <Repeat size={34} className="text-indigo-600" data-empty-float />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-[#E2E9DF]/60 border border-[#E2E9DF] shadow-sm mb-5">
+            <Repeat size={34} className="text-[#4B5D3C]" data-empty-float />
           </div>
-          <h3 className="text-lg font-bold text-slate-900">No Habits Tracked Yet</h3>
+          <h3 className="text-lg font-bold text-[#26261F]">No Habits Tracked Yet</h3>
           <p className="mt-1.5 text-xs text-slate-500 max-w-md mx-auto leading-relaxed font-medium">
             Add your first recurring habit — like reading, exercising, or journaling —
             then check it off each day to grow your streak.
@@ -456,7 +475,7 @@ export default function Habits() {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#4B5D3C] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3A492E] active:scale-[0.98]"
             >
               <Plus size={16} />
               Create Your First Habit
@@ -487,8 +506,8 @@ export default function Habits() {
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                           habit.frequency === "weekly"
-                            ? "bg-purple-50 text-purple-600"
-                            : "bg-indigo-50 text-indigo-600"
+                            ? "bg-[#E2E9DF] text-[#3A492E]"
+                            : "bg-[#E2E9DF]/60 text-[#4B5D3C]"
                         }`}
                       >
                         {habit.frequency}
@@ -505,7 +524,7 @@ export default function Habits() {
                     <button
                       type="button"
                       onClick={() => openEdit(habit)}
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 transition rounded-lg hover:bg-slate-100"
+                      className="p-1.5 text-slate-400 hover:text-[#4B5D3C] transition rounded-lg hover:bg-slate-100"
                       title="Edit Habit"
                       aria-label={`Edit ${habit.name}`}
                     >
@@ -527,16 +546,21 @@ export default function Habits() {
                 {habit.frequency !== "weekly" && (
                   <button
                     type="button"
-                    onClick={(e) => toggleCheck(habit.id, today, !doneToday, e.currentTarget)}
+                    onClick={(e) => {
+                      if (!doneToday) {
+                        toggleCheck(habit.id, today, true, e.currentTarget);
+                      }
+                    }}
+                    disabled={doneToday}
                     aria-pressed={doneToday}
-                    className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                    className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition ${
                       doneToday
-                        ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600 focus-visible:ring-emerald-500"
-                        : "bg-white border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-600 focus-visible:ring-emerald-400"
+                        ? "bg-[#4B5D3C] border-[#4B5D3C] text-white cursor-default shadow-xs"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-[#4B5D3C]/40 hover:text-[#4B5D3C] active:scale-[0.98] focus-visible:ring-[#4B5D3C]"
                     }`}
                   >
                     <Check size={16} strokeWidth={3} />
-                    {doneToday ? "Completed Today" : "Mark Today Complete"}
+                    {doneToday ? "Completed Today ✓" : "Mark Today Complete"}
                   </button>
                 )}
 
@@ -550,7 +574,7 @@ export default function Habits() {
                       <button
                         type="button"
                         onClick={() => setWeekOffset((w) => w - 1)}
-                        className="p-1 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition"
+                        className="p-1 text-slate-400 hover:text-[#4B5D3C] rounded-md hover:bg-slate-100 transition"
                         title="Previous Week"
                         aria-label="Previous Week"
                       >
@@ -560,7 +584,7 @@ export default function Habits() {
                         <button
                           type="button"
                           onClick={() => setWeekOffset(0)}
-                          className="px-1.5 py-0.5 rounded text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition"
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold text-[#4B5D3C] bg-[#E2E9DF]/60 hover:bg-[#E2E9DF] transition"
                         >
                           Today
                         </button>
@@ -568,7 +592,7 @@ export default function Habits() {
                       <button
                         type="button"
                         onClick={() => setWeekOffset((w) => w + 1)}
-                        className="p-1 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-slate-100 transition"
+                        className="p-1 text-slate-400 hover:text-[#4B5D3C] rounded-md hover:bg-slate-100 transition"
                         title="Next Week"
                         aria-label="Next Week"
                       >
@@ -582,39 +606,34 @@ export default function Habits() {
                       const checked = dates.includes(date);
                       const isToday = date === today;
                       const isPast = date < today;
-
                       const tooltipTitle = isToday
                         ? checked
-                          ? "Click to unmark today"
-                          : "Click to mark today complete"
+                          ? `${date} (Completed today — locked)`
+                          : `${date} (Click to complete today)`
                         : isPast
-                        ? checked
-                          ? `Completed on ${date} (read-only)`
-                          : `Missed on ${date} (past days cannot be marked)`
-                        : `${date} (locked — cannot mark future days)`;
+                        ? `${date} (Past day — read only)`
+                        : `${date} (Future day — read only)`;
 
                       return (
                         <button
                           key={date}
                           type="button"
-                          disabled={!isToday}
+                          disabled={!isToday || checked}
                           onClick={(e) => {
-                            if (!isToday) return;
-                            toggleCheck(habit.id, date, !checked, e.currentTarget);
+                            if (!isToday || checked) return;
+                            toggleCheck(habit.id, date, true, e.currentTarget);
                           }}
                           aria-pressed={checked}
-                          aria-label={`${checked ? "Completed" : "Incomplete"} ${habit.name} on ${date}${!isToday ? " (read-only)" : ""}`}
+                          aria-label={`${checked ? "Completed" : "Incomplete"} ${habit.name} on ${date}${!isToday ? " (read-only)" : checked ? " (locked)" : ""}`}
                           title={tooltipTitle}
                           className={`flex flex-1 flex-col items-center gap-1 rounded-xl border py-2 transition focus:outline-none ${
                             isToday
-                              ? `cursor-pointer active:scale-95 ring-2 ring-indigo-400/80 shadow-2xs ${
-                                  checked
-                                    ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                                    : "border-indigo-300 bg-indigo-50/40 text-slate-700 hover:border-indigo-500 hover:bg-white"
-                                }`
+                              ? checked
+                                ? "cursor-default border-[#4B5D3C] bg-[#E2E9DF]/80 text-[#3A492E] ring-2 ring-[#4B5D3C]/40 shadow-2xs"
+                                : "cursor-pointer active:scale-95 ring-2 ring-[#4B5D3C]/40 shadow-2xs border-[#4B5D3C]/40 bg-[#E2E9DF]/20 text-slate-700 hover:border-[#4B5D3C] hover:bg-white"
                               : `cursor-not-allowed ${
                                   checked
-                                    ? "border-emerald-200 bg-emerald-50/60 text-emerald-700 opacity-90"
+                                    ? "border-[#4B5D3C]/30 bg-[#E2E9DF]/40 text-[#3A492E] opacity-80"
                                     : isPast
                                     ? "border-slate-200 bg-slate-100/70 text-slate-400 opacity-60"
                                     : "border-dashed border-slate-200 bg-slate-50/40 text-slate-300 opacity-40"
@@ -625,9 +644,9 @@ export default function Habits() {
                           <span
                             className={`text-[11px] font-extrabold ${
                               checked
-                                ? "text-emerald-800"
+                                ? "text-[#3A492E]"
                                 : isToday
-                                ? "text-indigo-700 font-black"
+                                ? "text-[#4B5D3C] font-black"
                                 : "text-slate-600"
                             }`}
                           >
@@ -636,9 +655,9 @@ export default function Habits() {
                           <span
                             className={`flex h-5 w-5 items-center justify-center rounded-full mt-0.5 transition ${
                               checked
-                                ? "bg-emerald-500 text-white shadow-2xs"
+                                ? "bg-[#4B5D3C] text-white shadow-2xs"
                                 : isToday
-                                ? "bg-white border-2 border-indigo-400 hover:border-indigo-600"
+                                ? "bg-white border-2 border-[#4B5D3C] hover:border-[#3A492E]"
                                 : isPast
                                 ? "bg-slate-100 border border-slate-300"
                                 : "bg-transparent border border-dashed border-slate-300"
@@ -721,7 +740,7 @@ export default function Habits() {
                   placeholder="e.g. Read 20 minutes"
                   maxLength={80}
                   aria-invalid={!!formError}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 transition-all duration-150 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 focus:outline-none"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 transition-all duration-150 focus:border-[#4B5D3C] focus:ring-4 focus:ring-[#E2E9DF] focus:outline-none"
                 />
               </div>
 
@@ -736,7 +755,7 @@ export default function Habits() {
                   placeholder="Why does this habit matter? (optional)"
                   rows={3}
                   maxLength={300}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all duration-150 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 focus:outline-none resize-none"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-all duration-150 focus:border-[#4B5D3C] focus:ring-4 focus:ring-[#E2E9DF] focus:outline-none resize-none"
                 />
               </div>
 
@@ -749,10 +768,10 @@ export default function Habits() {
                       type="button"
                       onClick={() => setFrequency(freq.value)}
                       aria-pressed={frequency === freq.value}
-                      className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                      className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5D3C] ${
                         frequency === freq.value
-                          ? "border-indigo-600 bg-indigo-50 text-indigo-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300"
+                          ? "border-[#4B5D3C] bg-[#E2E9DF]/60 text-[#3A492E]"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-[#4B5D3C]/40"
                       }`}
                     >
                       {freq.label}
@@ -780,7 +799,7 @@ export default function Habits() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                className="rounded-xl bg-[#4B5D3C] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3A492E] active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5D3C] focus-visible:ring-offset-2"
               >
                 {submitting
                   ? (editingHabit ? "Saving..." : "Adding...")

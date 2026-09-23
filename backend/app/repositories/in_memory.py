@@ -2,7 +2,7 @@ import threading
 import uuid
 from datetime import datetime
 from typing import Optional, Any
-from app.models.domain import User, Goal, JournalEntry, WeeklySummary, Progress, Habit, HabitLog
+from app.models.domain import User, Goal, JournalEntry, WeeklySummary, Progress, Habit, HabitLog, Roadmap
 from app.repositories.base import (
     AbstractUserRepository,
     AbstractGoalRepository,
@@ -10,6 +10,7 @@ from app.repositories.base import (
     AbstractSummaryRepository,
     AbstractProgressRepository,
     AbstractHabitRepository,
+    AbstractRoadmapRepository,
 )
 
 class InMemoryUserRepository(AbstractUserRepository):
@@ -341,6 +342,47 @@ class InMemoryHabitRepository(AbstractHabitRepository):
             return list(self._user_logs.get(user_id, {}).get(habit_id, []))
 
 
+class InMemoryRoadmapRepository(AbstractRoadmapRepository):
+    def __init__(self):
+        self._lock = threading.Lock()
+        # Keyed by user_id -> dict of goal_id -> Roadmap
+        self._user_roadmaps: dict[str, dict[str, Roadmap]] = {}
+
+    def save(self, roadmap: Roadmap) -> Roadmap:
+        with self._lock:
+            if roadmap.user_id not in self._user_roadmaps:
+                self._user_roadmaps[roadmap.user_id] = {}
+            self._user_roadmaps[roadmap.user_id][roadmap.goal_id] = roadmap
+            return roadmap
+
+    def get_by_goal(self, user_id: str, goal_id: str) -> Optional[Roadmap]:
+        with self._lock:
+            user_dict = self._user_roadmaps.get(user_id, {})
+            return user_dict.get(goal_id)
+
+    def toggle_milestone(
+        self,
+        user_id: str,
+        goal_id: str,
+        step_number: int,
+        completed: Optional[bool] = None,
+    ) -> Optional[Roadmap]:
+        with self._lock:
+            user_dict = self._user_roadmaps.get(user_id, {})
+            roadmap = user_dict.get(goal_id)
+            if not roadmap:
+                return None
+            for m in roadmap.milestones:
+                if isinstance(m, dict):
+                    if m.get("step_number") == step_number:
+                        m["completed"] = not m.get("completed", False) if completed is None else completed
+                elif hasattr(m, "step_number"):
+                    if m.step_number == step_number:
+                        setattr(m, "completed", not getattr(m, "completed", False) if completed is None else completed)
+            roadmap.updated_at = datetime.utcnow()
+            return roadmap
+
+
 # Singleton instances for in-memory persistence across routes
 user_repo = InMemoryUserRepository()
 goal_repo = InMemoryGoalRepository()
@@ -348,4 +390,6 @@ journal_repo = InMemoryJournalRepository()
 summary_repo = InMemorySummaryRepository()
 progress_repo = InMemoryProgressRepository()
 habit_repo = InMemoryHabitRepository()
+roadmap_repo = InMemoryRoadmapRepository()
+
 

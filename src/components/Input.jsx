@@ -19,7 +19,7 @@ export default function Input({
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
         className={`input-field px-4.5 py-3.5 text-base text-slate-900 placeholder:text-slate-400 bg-white border border-slate-200 rounded-2xl
-          transition-all duration-150 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100
+          transition-all duration-150 focus:border-[#4B5D3C] focus:ring-4 focus:ring-[#E2E9DF]
           ${error ? 'border-red-500 focus:ring-red-100' : 'border-slate-200'} ${className}`}
         {...props}
       />

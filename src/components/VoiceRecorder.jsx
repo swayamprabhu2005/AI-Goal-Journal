@@ -182,8 +182,8 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
     <Card className="mb-6 border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <div>
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <span className="text-indigo-600">🎙️</span> Voice Reflection (faster-whisper Tiny)
+          <h3 className="text-lg font-bold text-[#26261F] flex items-center gap-2">
+            <span className="text-[#4B5D3C]">🎙️</span> Voice Reflection (faster-whisper Tiny)
           </h3>
           <p className="text-xs text-slate-500 mt-0.5 font-medium">
             Speak naturally about your day. Transcribed locally on CPU (INT8) with zero cloud speech API fees.
@@ -227,7 +227,7 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
                   <span
                     key={i}
                     style={{ animationDelay: `${i * 90}ms` }}
-                    className="eq-bar w-1.5 h-10 rounded-full bg-indigo-600"
+                    className="eq-bar w-1.5 h-10 rounded-full bg-[#4B5D3C]"
                   />
                 ))}
               </div>
@@ -256,7 +256,7 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
               <span className="text-[11px] text-slate-700 font-medium">Ready for local transcription</span>
             </div>
 
-            <audio controls src={audioUrl} className="w-full h-10 accent-indigo-600" />
+            <audio controls src={audioUrl} className="w-full h-10 accent-[#4B5D3C]" />
 
             <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-200">
               <Button variant="ghost" onClick={discardRecording} className="text-xs">
@@ -272,7 +272,7 @@ export default function VoiceRecorder({ onTranscriptReady, onDirectSubmit, isSub
         {/* 4. Transcribing State */}
         {recordingState === 'transcribing' && (
           <div className="flex flex-col items-center justify-center rounded-xl bg-slate-50 p-8 border border-slate-200 text-center">
-            <div className="h-7 w-7 animate-spin rounded-full border-3 border-slate-300 border-t-indigo-600 mb-3" />
+            <div className="h-7 w-7 animate-spin rounded-full border-3 border-slate-300 border-t-[#4B5D3C] mb-3" />
             <p className="text-sm font-bold text-slate-900">Transcribing locally with faster-whisper Tiny...</p>
             <p className="text-xs text-slate-500 mt-1">Zero cloud API costs. CPU INT8 processing takes a few moments.</p>
           </div>

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
@@ -20,16 +21,6 @@ class HabitUpdate(BaseModel):
     frequency: Optional[str] = None
 
 
-class HabitResponse(BaseModel):
-    id: str
-    user_id: str
-    name: str
-    description: Optional[str] = None
-    frequency: str
-    created_at: datetime
-    updated_at: datetime
-
-
 class HabitLogResponse(BaseModel):
     id: str
     habit_id: str
@@ -41,3 +32,16 @@ class HabitStatusResponse(BaseModel):
     habit_id: str
     completed_today: bool
     current_streak: int
+
+
+class HabitResponse(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    description: Optional[str] = None
+    frequency: str
+    created_at: datetime
+    updated_at: datetime
+    completed_today: Optional[bool] = None
+    current_streak: Optional[int] = None
+    recent_logs: Optional[list[HabitLogResponse]] = None

@@ -10,6 +10,7 @@ from app.services.gemini_service import gemini_service
 from app.services.progress_service import progress_service
 from app.schemas.progress import ProgressCreate
 from app.core.crypto import crypto_service
+from app.services.mood_service import mood_service
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ class JournalService:
             source=entry.source,
             title=entry.title,
             ai_analysis=entry.ai_analysis,
+            detected_mood=getattr(entry, "detected_mood", None),
+            mood_confidence=getattr(entry, "mood_confidence", None),
+            trigger_keywords=getattr(entry, "trigger_keywords", None),
             created_at=entry.created_at,
             updated_at=entry.updated_at,
         )
@@ -153,7 +157,24 @@ class JournalService:
                 g_sug["matched_existing_goal_id"] = matched_id
                 g_sug["matched_existing_goal_title"] = matched_title
 
-        # 8. Assemble and persist encrypted JournalEntry
+        # 8. Run 10-Class PyTorch Mood Analyzer on entry content
+        try:
+            mood_result = mood_service.predict(content)
+            detected_mood = mood_result.get("mood")
+            mood_confidence = mood_result.get("confidence")
+            trigger_keywords = mood_result.get("trigger_keywords", [])
+        except Exception as e:
+            logger.warning("Mood prediction error: %s", e)
+            detected_mood = None
+            mood_confidence = None
+            trigger_keywords = []
+
+        if detected_mood:
+            ai_raw["detected_mood"] = detected_mood
+            ai_raw["mood_confidence"] = mood_confidence
+            ai_raw["trigger_keywords"] = trigger_keywords
+
+        # 9. Assemble and persist encrypted JournalEntry
         encrypted_content = crypto_service.encrypt(content)
         journal_entry = JournalEntry(
             id=entry_id,
@@ -162,10 +183,13 @@ class JournalService:
             source=data.source or "text",
             title=ai_raw.get("title"),
             ai_analysis=ai_raw,
+            detected_mood=detected_mood,
+            mood_confidence=mood_confidence,
+            trigger_keywords=trigger_keywords,
         )
 
         saved = journal_repo.create(journal_entry)
-        logger.info("Saved encrypted journal %s for user %s with AI analysis", saved.id, user_id)
+        logger.info("Saved encrypted journal %s for user %s with AI analysis and mood %s", saved.id, user_id, detected_mood)
         return self._decrypt_entry(saved)
 
     def update_journal(self, user_id: str, journal_id: str, data: JournalUpdate) -> Optional[JournalEntry]:

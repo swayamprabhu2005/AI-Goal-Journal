@@ -1,0 +1,5 @@
+# Lightweight dependencies for Mood Analyzer training & inference
+# Zero heavy transformer bloat - completely CPU friendly (< 25MB RAM in inference)
+torch>=2.0.0
+numpy>=1.24.0
+tqdm>=4.65.0

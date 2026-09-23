@@ -13,12 +13,15 @@ load_dotenv(ENV_FILE)
 
 DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./app.db"
 
-# If PostgreSQL is requested, check if driver is available; otherwise fallback to SQLite
+# If PostgreSQL is requested, verify server is actually reachable; otherwise fallback to SQLite
 if DATABASE_URL.startswith("postgresql"):
     try:
-        import psycopg2  # noqa: F401
+        import psycopg2
+        test_conn = psycopg2.connect(DATABASE_URL, connect_timeout=1)
+        test_conn.close()
         connect_args = {}
-    except ImportError:
+    except Exception as exc:
+        print(f"[DB] PostgreSQL unreachable ({exc}). Falling back to local SQLite database.")
         DATABASE_URL = "sqlite:///./app.db"
         connect_args = {"check_same_thread": False}
 else:
@@ -49,6 +52,18 @@ def init_db():
     try:
         import app.database.orm_models  # Register ORM models
         Base.metadata.create_all(bind=engine)
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "journals" in inspector.get_table_names():
+            cols = [c["name"] for c in inspector.get_columns("journals")]
+            with engine.begin() as conn:
+                if "detected_mood" not in cols:
+                    conn.execute(text("ALTER TABLE journals ADD COLUMN detected_mood VARCHAR"))
+                if "mood_confidence" not in cols:
+                    conn.execute(text("ALTER TABLE journals ADD COLUMN mood_confidence FLOAT"))
+                if "trigger_keywords" not in cols:
+                    col_type = "JSONB" if "postgresql" in engine.dialect.name else "JSON"
+                    conn.execute(text(f"ALTER TABLE journals ADD COLUMN trigger_keywords {col_type}"))
     except Exception as e:
         print(f"Database init note: {e}")
 

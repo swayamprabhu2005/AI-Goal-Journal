@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { userApi, goalApi, journalApi, summaryApi } from '../services/api';
+import { userApi, goalApi, journalApi, summaryApi, habitApi } from '../services/api';
 import { useAuth } from './AuthContext';
 
 import { notifyGoalCompleted } from '../components/GoalCelebration';
@@ -12,12 +12,14 @@ export function DataProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [goals, setGoals] = useState([]);
   const [journals, setJournals] = useState([]);
+  const [habits, setHabits] = useState([]);
   const [summary, setSummary] = useState(null);
   const [recentlyCompletedGoal, setRecentlyCompletedGoal] = useState(null);
 
   const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
   const [hasLoadedGoals, setHasLoadedGoals] = useState(false);
   const [hasLoadedJournals, setHasLoadedJournals] = useState(false);
+  const [hasLoadedHabits, setHasLoadedHabits] = useState(false);
   const [hasLoadedSummary, setHasLoadedSummary] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -26,11 +28,13 @@ export function DataProvider({ children }) {
     setProfile(null);
     setGoals([]);
     setJournals([]);
+    setHabits([]);
     setSummary(null);
     setRecentlyCompletedGoal(null);
     setHasLoadedProfile(false);
     setHasLoadedGoals(false);
     setHasLoadedJournals(false);
+    setHasLoadedHabits(false);
     setHasLoadedSummary(false);
     setInitialLoading(false);
   }, []);
@@ -89,6 +93,19 @@ export function DataProvider({ children }) {
     }
   }, []);
 
+  // Fetch Habits
+  const fetchHabits = useCallback(async (options = { quiet: false }) => {
+    try {
+      const data = await habitApi.listHabits();
+      setHabits(data || []);
+      setHasLoadedHabits(true);
+      return data;
+    } catch (err) {
+      console.error('DataContext fetchHabits error:', err);
+      if (!options.quiet) throw err;
+    }
+  }, []);
+
   // Fetch Weekly Summary
   const fetchSummary = useCallback(async (options = { quiet: false }) => {
     try {
@@ -105,11 +122,12 @@ export function DataProvider({ children }) {
   // Fetch All Data
   const fetchAllData = useCallback(async (options = { quiet: false }) => {
     try {
-      // 1. Fetch core data concurrently
-      const [profileRes, goalsRes, journalsRes] = await Promise.allSettled([
+      // 1. Fetch core data concurrently (profile, goals, journals, habits)
+      const [profileRes, goalsRes, journalsRes, habitsRes] = await Promise.allSettled([
         userApi.getProfile(),
         goalApi.listGoals(),
         journalApi.listJournals(),
+        habitApi.listHabits(),
       ]);
 
       if (profileRes.status === 'fulfilled') {
@@ -123,6 +141,10 @@ export function DataProvider({ children }) {
       if (journalsRes.status === 'fulfilled') {
         setJournals(journalsRes.value || []);
         setHasLoadedJournals(true);
+      }
+      if (habitsRes.status === 'fulfilled') {
+        setHabits(habitsRes.value || []);
+        setHasLoadedHabits(true);
       }
 
       // Unblock initial loading immediately so UI renders in < 50ms
@@ -192,6 +214,18 @@ export function DataProvider({ children }) {
     setHasLoadedSummary(true);
   }, []);
 
+  const addHabitInCache = useCallback((newHabit) => {
+    setHabits((prev) => [newHabit, ...prev]);
+  }, []);
+
+  const updateHabitInCache = useCallback((updatedHabit) => {
+    setHabits((prev) => prev.map((h) => (h.id === updatedHabit.id ? updatedHabit : h)));
+  }, []);
+
+  const deleteHabitFromCache = useCallback((habitId) => {
+    setHabits((prev) => prev.filter((h) => h.id !== habitId));
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -199,16 +233,20 @@ export function DataProvider({ children }) {
         userProfile: profile,
         goals,
         journals,
+        habits,
         summary,
         recentlyCompletedGoal,
         hasLoadedProfile,
         hasLoadedGoals,
         hasLoadedJournals,
+        hasLoadedHabits,
         hasLoadedSummary,
         initialLoading,
+        loading: initialLoading || !hasLoadedGoals,
         fetchProfile,
         fetchGoals,
         fetchJournals,
+        fetchHabits,
         fetchSummary,
         fetchAllData,
         addGoal,
@@ -219,6 +257,10 @@ export function DataProvider({ children }) {
         addJournal,
         updateJournalInCache,
         deleteJournalFromCache,
+        addHabitInCache,
+        updateHabitInCache,
+        deleteHabitFromCache,
+        setHabitsInCache: setHabits,
         updateProfileInCache,
         updateProfileLocal: updateProfileInCache,
         setSummaryInCache,

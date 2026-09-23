@@ -1,0 +1,21 @@
+{
+  "goal_title": "Learn Frontend Development",
+  "total_milestones": 5,
+  "estimated_total_duration": "10-12 weeks",
+  "milestones": [
+    {
+      "step_number": 1,
+      "title": "Semantic HTML5 & Accessible Structure",
+      "short_description": "Master document structure, semantic tags, forms, validation, and accessibility (ARIA basics).",
+      "estimated_duration": "1-2 weeks",
+      "key_action_item": "Build an accessible multi-page product landing page strictly with HTML5."
+    },
+    {
+      "step_number": 2,
+      "title": "Modern CSS, Flexbox & Grid Layouts",
+      "short_description": "Learn the box model, responsive design with media queries, Flexbox, CSS Grid, and CSS variables.",
+      "estimated_duration": "2 weeks",
+      "key_action_item": "Style the landing page to be responsive across mobile, tablet, and desktop viewports."
+    }
+  ]
+}

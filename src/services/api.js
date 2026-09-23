@@ -1,6 +1,40 @@
 import { auth } from '../firebase';
+import { isDevPreview } from '../config/devPreview'; // DEV PREVIEW ONLY (see config/devPreview.js)
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
+/** Port the FastAPI backend uses when the API endpoint is not explicitly set. */
+const DEFAULT_BACKEND_PORT = 8000;
+
+/**
+ * Resolve the API endpoint for ANY machine — never hard-code 127.0.0.1, which
+ * would silently point every teammate (Farah/Swayam/…) at their own localhost.
+ *
+ *   1. VITE_API_BASE_URL when set  -> deployed / custom backend (see .env.example).
+ *   2. Vite dev server             -> same-origin "/api/v1", proxied to the
+ *                                     backend by vite.config.js. Works on
+ *                                     localhost, 127.0.0.1, a LAN IP, etc. and
+ *                                     needs no CORS configuration.
+ *   3. Production build            -> same host that served the app, backend
+ *                                     port 8000 (unless VITE_API_BASE_URL is set).
+ *
+ * Each developer only has to run the backend next to the frontend; nobody has to
+ * borrow someone else's localhost or edit this file.
+ */
+function resolveApiBase() {
+  const configured = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
+  if (import.meta.env.DEV) return '/api/v1';
+
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const { protocol, hostname, port } = window.location;
+    const portSuffix = port === String(DEFAULT_BACKEND_PORT) ? '' : `:${DEFAULT_BACKEND_PORT}`;
+    return `${protocol}//${hostname}${portSuffix}/api/v1`;
+  }
+
+  return '/api/v1';
+}
+
+const API_BASE = resolveApiBase();
 
 /**
  * Retrieves the current Firebase user's ID token and formats Authorization header.
@@ -8,6 +42,18 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api
 export async function getAuthHeaders() {
   const currentUser = auth.currentUser;
   if (!currentUser) {
+    // =========================================================================
+    // DEVELOPMENT / LOCAL PREVIEW ONLY — when the dev-preview login bypass is
+    // active (VITE_DEV_PREVIEW=true in the dev server), there is no real
+    // Firebase session, so send the backend's accepted mock dev token instead
+    // of no header at all. Never active in production builds
+    // (see config/devPreview.js). Real Firebase auth is untouched otherwise.
+    // =========================================================================
+    if (isDevPreview) {
+      return {
+        Authorization: 'Bearer mock-dev-token-123',
+      };
+    }
     return {};
   }
   const token = await currentUser.getIdToken();
@@ -77,8 +123,19 @@ export const goalApi = {
     const query = status ? `?status=${encodeURIComponent(status)}` : '';
     return fetchWithAuth(`/goals${query}`);
   },
+  list: (status) => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return fetchWithAuth(`/goals${query}`);
+  },
   getGoal: (id) => fetchWithAuth(`/goals/${id}`),
+  get: (id) => fetchWithAuth(`/goals/${id}`),
   createGoal: (data) =>
+    fetchWithAuth('/goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  create: (data) =>
     fetchWithAuth('/goals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -90,14 +147,21 @@ export const goalApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
+  update: (id, data) =>
+    fetchWithAuth(`/goals/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
   deleteGoal: (id) =>
     fetchWithAuth(`/goals/${id}`, {
       method: 'DELETE',
     }),
-  getFocusNext: async () => {
-    const res = await api.get('/goals/focus-next'); // or '/api/v1/goals/focus-next'
-    return res.data;
-  },
+  delete: (id) =>
+    fetchWithAuth(`/goals/${id}`, {
+      method: 'DELETE',
+    }),
+  getFocusNext: () => fetchWithAuth('/goals/focus-next'),
 };
 
 /**
@@ -105,8 +169,16 @@ export const goalApi = {
  */
 export const journalApi = {
   listJournals: () => fetchWithAuth('/journals'),
+  list: () => fetchWithAuth('/journals'),
   getJournal: (id) => fetchWithAuth(`/journals/${id}`),
+  get: (id) => fetchWithAuth(`/journals/${id}`),
   createJournal: (data) =>
+    fetchWithAuth('/journals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  create: (data) =>
     fetchWithAuth('/journals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -118,7 +190,17 @@ export const journalApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
+  update: (id, data) =>
+    fetchWithAuth(`/journals/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
   deleteJournal: (id) =>
+    fetchWithAuth(`/journals/${id}`, {
+      method: 'DELETE',
+    }),
+  delete: (id) =>
     fetchWithAuth(`/journals/${id}`, {
       method: 'DELETE',
     }),
@@ -173,7 +255,10 @@ export const progressApi = {
     }),
   getGoalProgress: (goalId) => fetchWithAuth(`/progress/goal/${goalId}`),
   getProgressHistory: (goalId) => fetchWithAuth(`/progress/goal/${goalId}`),
-  getProgressTrend: (goalId) => fetchWithAuth(`/progress/goal/${goalId}/trend`),
+  getProgressTrend: (goalId, days) => {
+    const query = days ? `?days=${encodeURIComponent(days)}` : '';
+    return fetchWithAuth(`/progress/goal/${goalId}/trend${query}`);
+  },
   getLatestGoalProgress: (goalId) => fetchWithAuth(`/progress/goal/${goalId}/latest`),
   getLatestProgress: (goalId) => fetchWithAuth(`/progress/goal/${goalId}/latest`),
 };
@@ -182,13 +267,19 @@ export const progressApi = {
  * Habit Tracker API
  */
 export const habitApi = {
-  listHabits: () =>
-    fetchWithAuth('/habits'),
+  listHabits: () => fetchWithAuth('/habits'),
+  list: () => fetchWithAuth('/habits'),
 
-  getHabit: (id) =>
-    fetchWithAuth(`/habits/${id}`),
+  getHabit: (id) => fetchWithAuth(`/habits/${id}`),
+  get: (id) => fetchWithAuth(`/habits/${id}`),
 
   createHabit: (data) =>
+    fetchWithAuth('/habits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  create: (data) =>
     fetchWithAuth('/habits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -201,8 +292,18 @@ export const habitApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
+  update: (id, data) =>
+    fetchWithAuth(`/habits/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
 
   deleteHabit: (id) =>
+    fetchWithAuth(`/habits/${id}`, {
+      method: 'DELETE',
+    }),
+  delete: (id) =>
     fetchWithAuth(`/habits/${id}`, {
       method: 'DELETE',
     }),
@@ -221,11 +322,9 @@ export const habitApi = {
     });
   },
 
-  getHabitLogs: (id) =>
-    fetchWithAuth(`/habits/${id}/logs`),
+  getHabitLogs: (id) => fetchWithAuth(`/habits/${id}/logs`),
 
-  getHabitStatus: (id) =>
-    fetchWithAuth(`/habits/${id}/status`),
+  getHabitStatus: (id) => fetchWithAuth(`/habits/${id}/status`),
 };
 
 /**
@@ -233,4 +332,72 @@ export const habitApi = {
  */
 export const productivityApi = {
   getProductivityScore: () => fetchWithAuth('/productivity-score'),
+};
+
+/**
+ * Google Calendar Integration API
+ */
+export const calendarApi = {
+  getAuthUrl: () => fetchWithAuth('/calendar/auth-url'),
+  getStatus: () => fetchWithAuth('/calendar/status'),
+  connect: (email) =>
+    fetchWithAuth('/calendar/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }),
+  syncGoal: (goalId, options = {}) =>
+    fetchWithAuth('/calendar/sync-goal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goal_id: goalId,
+        target_date: options.target_date,
+        start_time: options.start_time,
+        duration_minutes: options.duration_minutes || 60,
+      }),
+    }),
+  disconnect: () =>
+    fetchWithAuth('/calendar/disconnect', {
+      method: 'DELETE',
+    }),
+};
+
+/**
+ * AI Goal Roadmap API
+ */
+export const roadmapApi = {
+  generateRoadmap: (data) =>
+    fetchWithAuth('/roadmap/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  getSampleRoadmap: () => fetchWithAuth('/roadmap/sample'),
+  getGoalRoadmap: (goalId, timeline = 'Self-paced', level = 'Beginner') =>
+    fetchWithAuth(`/goals/${goalId}/roadmap?timeline=${encodeURIComponent(timeline)}&level=${encodeURIComponent(level)}`),
+  generateGoalRoadmap: (goalId, data = {}) =>
+    fetchWithAuth(`/goals/${goalId}/roadmap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  toggleMilestone: (goalId, stepNumber, completed) => {
+    const query = completed !== undefined && completed !== null ? `?completed=${completed}` : '';
+    return fetchWithAuth(`/goals/${goalId}/roadmap/milestones/${stepNumber}/toggle${query}`, {
+      method: 'POST',
+    });
+  },
+};
+
+/**
+ * AI Coach Conversational API (Groq Cloud)
+ */
+export const coachApi = {
+  chat: (message, history = []) =>
+    fetchWithAuth('/coach/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history }),
+    }),
 };

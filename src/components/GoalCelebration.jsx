@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { PartyPopper, Trophy, Sparkles, X, CheckCircle2, ArrowRight } from 'lucide-react';
 
 /**
  * Dispatch a global custom event whenever a goal is newly completed.
- * Panshobh's celebration component or any external module can listen via:
- * window.addEventListener('goal:completed', (e) => console.log(e.detail.goal));
  */
 export function notifyGoalCompleted(goal) {
   if (typeof window !== 'undefined' && goal) {
@@ -18,14 +16,149 @@ export function notifyGoalCompleted(goal) {
   }
 }
 
+const CONFETTI_COLORS = [
+  "#4F46E5", "#10B981", "#F59E0B", "#8B5CF6", 
+  "#EF4444", "#EC4899", "#3B82F6", "#F43F5E", "#EAB308"
+];
+const SHAPES = ["rect", "circle", "diamond", "star"];
+
+function useEpicConfetti(canvasRef, visible) {
+  useEffect(() => {
+    if (!visible) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let animationId;
+    const dims = () => ({ w: window.innerWidth, h: window.innerHeight });
+
+    const resize = () => {
+      const { w, h } = dims();
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const { w, h } = dims();
+    const particleCount = w < 640 ? 180 : 380;
+    const particles = [];
+
+    // 1. Dual Cannon Explosions (Bottom-Left and Bottom-Right bursts)
+    for (let i = 0; i < particleCount; i++) {
+      const isLeftCannon = i % 2 === 0;
+      const originX = isLeftCannon ? w * 0.15 : w * 0.85;
+      const originY = h * 0.85;
+      const baseAngle = isLeftCannon ? -Math.PI / 3 : (-2 * Math.PI) / 3;
+      const angle = baseAngle + (Math.random() - 0.5) * 0.8;
+      const speed = Math.random() * 22 + 12;
+
+      particles.push({
+        x: originX,
+        y: originY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: Math.random() * 11 + 6,
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.4,
+        shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
+        drift: (Math.random() - 0.5) * 0.4,
+        grav: 0.38 + Math.random() * 0.2,
+        opacity: 1,
+      });
+    }
+
+    const drawParticle = (p) => {
+      const s = p.size;
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.opacity;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+
+      if (p.shape === "circle") {
+        ctx.beginPath();
+        ctx.arc(0, 0, s / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.shape === "diamond") {
+        ctx.beginPath();
+        ctx.moveTo(0, -s / 2);
+        ctx.lineTo(s / 2, 0);
+        ctx.lineTo(0, s / 2);
+        ctx.lineTo(-s / 2, 0);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.shape === "star") {
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          ctx.lineTo(Math.cos(((18 + i * 72) * Math.PI) / 180) * (s / 2), -Math.sin(((18 + i * 72) * Math.PI) / 180) * (s / 2));
+          ctx.lineTo(Math.cos(((54 + i * 72) * Math.PI) / 180) * (s / 4), -Math.sin(((54 + i * 72) * Math.PI) / 180) * (s / 4));
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillRect(-s / 2, -s / 2, s, s * 0.6);
+      }
+
+      ctx.restore();
+    };
+
+    const render = () => {
+      const { w, h } = dims();
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.vx += p.drift * 0.05;
+        p.vy += p.grav;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.rotSpeed;
+
+        // Recycle off-screen falling particles to maintain continuous shower
+        if (p.y > h + 50) {
+          p.x = Math.random() * w;
+          p.y = -20;
+          p.vx = (Math.random() - 0.5) * 2;
+          p.vy = Math.random() * 4 + 2;
+          p.opacity = 1;
+        }
+
+        drawParticle(p);
+      }
+
+      ctx.restore();
+      animationId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      if (animationId) cancelAnimationFrame(animationId);
+    };
+  }, [visible]);
+}
+
 export default function GoalCelebration({ goal, onClose }) {
   const [visible, setVisible] = useState(false);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
     if (goal) {
       setVisible(true);
     }
   }, [goal]);
+
+  useEpicConfetti(canvasRef, visible);
 
   if (!goal || !visible) return null;
 
@@ -35,30 +168,23 @@ export default function GoalCelebration({ goal, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-fade-in">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-amber-400/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/3 right-1/4 w-40 h-40 bg-emerald-400/20 rounded-full blur-3xl animate-pulse delay-300" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl animate-pulse delay-500" />
-        {["#4F46E5", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444"].flatMap((color, ci) =>
-          [0, 1, 2, 3, 4].map((n) => (
-            <span
-              key={`${ci}-${n}`}
-              className="confetti-piece"
-              style={{
-                left: `${8 + ((ci * 19 + n * 13) % 84)}%`,
-                background: color,
-                animationDelay: `${(ci * 0.08 + n * 0.05).toFixed(2)}s`,
-                "--cx": `${(n % 2 === 0 ? 1 : -1) * (18 + ci * 10)}px`,
-              }}
-            />
-          ))
-        )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 backdrop-blur-md p-4 animate-fade-in">
+      {/* High-Density Interactive Canvas Confetti */}
+      <canvas
+        ref={canvasRef}
+        className="pointer-events-none fixed inset-0 z-10 h-full w-full"
+      />
+
+      {/* Ambient Radial Glow Orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-amber-400/25 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-emerald-400/25 rounded-full blur-3xl animate-pulse delay-300" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#4B5D3C]/20 rounded-full blur-3xl animate-pulse delay-500" />
       </div>
 
-      <div className="relative panel w-full max-w-md p-7 shadow-2xl border border-emerald-200/80 bg-white rounded-3xl text-center overflow-hidden animate-scale-up">
-        {/* Top Banner Accent */}
-        <div className="absolute top-0 left-0 right-0 h-2.5 bg-gradient-to-r from-amber-400 via-emerald-500 to-indigo-600" />
+      <div className="relative z-20 panel w-full max-w-md p-7 shadow-2xl border border-emerald-200/80 bg-white/95 backdrop-blur-xl rounded-3xl text-center overflow-hidden animate-scale-up">
+        {/* Top Banner Gradient Accent */}
+        <div className="absolute top-0 left-0 right-0 h-2.5 bg-gradient-to-r from-amber-400 via-emerald-500 via-indigo-500 to-[#4B5D3C]" />
 
         {/* Close Button */}
         <button
@@ -74,7 +200,7 @@ export default function GoalCelebration({ goal, onClose }) {
         </div>
 
         <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 mb-3 shadow-sm">
-          <Sparkles size={14} className="text-amber-500" /> Goal Achieved! <PartyPopper size={14} className="text-emerald-600" />
+          <Sparkles size={14} className="text-amber-500" /> GOAL ACHIEVED! <PartyPopper size={14} className="text-emerald-600" />
         </div>
 
         <h3 className="text-2xl font-bold text-slate-900 leading-tight">
@@ -114,7 +240,7 @@ export default function GoalCelebration({ goal, onClose }) {
 
         <button
           onClick={handleClose}
-          className="mt-6 primary-button w-full py-3 text-sm font-bold shadow-md hover:shadow-emerald-200 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl flex items-center justify-center gap-2"
+          className="mt-6 primary-button w-full py-3 text-sm font-bold shadow-md hover:shadow-emerald-200 bg-[#4B5D3C] hover:bg-[#3A492E] text-white rounded-xl flex items-center justify-center gap-2"
         >
           Keep Crushing Goals <ArrowRight size={16} />
         </button>

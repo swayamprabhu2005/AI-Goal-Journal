@@ -1,8 +1,8 @@
 const VARIANTS = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:bg-indigo-300 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-0 border border-transparent',
-  secondary: 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50/60 shadow-sm hover:-translate-y-0.5 active:scale-[0.98] disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 disabled:translate-y-0',
-  accent: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 hover:-translate-y-0.5 active:scale-[0.98]',
-  ghost: 'bg-transparent text-indigo-600 hover:bg-indigo-50/60 active:scale-[0.98] disabled:text-slate-400',
+  primary: 'bg-[#4B5D3C] text-white hover:bg-[#3A492E] shadow-sm hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:bg-[#4B5D3C]/50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-0 border border-transparent',
+  secondary: 'bg-white text-[#4B5D3C] border border-[#E2E9DF] hover:bg-[#E2E9DF]/40 shadow-sm hover:-translate-y-0.5 active:scale-[0.98] disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 disabled:translate-y-0',
+  accent: 'bg-[#E2E9DF] text-[#3A492E] hover:bg-[#E2E9DF]/80 hover:-translate-y-0.5 active:scale-[0.98]',
+  ghost: 'bg-transparent text-[#4B5D3C] hover:bg-[#E2E9DF]/40 active:scale-[0.98] disabled:text-slate-400',
   danger: 'bg-red-500 text-white hover:bg-red-600 shadow-sm hover:-translate-y-0.5 active:scale-[0.98] disabled:bg-red-300 disabled:translate-y-0',
 };
 
@@ -21,7 +21,7 @@ export default function Button({
       disabled={disabled || loading}
       className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
         transition-all duration-200 disabled:cursor-not-allowed
-        focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5D3C] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50
         ${VARIANTS[variant] || VARIANTS.primary} ${className}`}
       {...props}
     >

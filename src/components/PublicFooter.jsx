@@ -1,55 +1,45 @@
 import { Link } from 'react-router-dom';
-import { Target } from 'lucide-react';
 
 export default function PublicFooter() {
   return (
-    <footer id="privacy" className="border-t border-slate-200 bg-white py-12 px-6">
-      <div className="mx-auto max-w-[1250px]">
-        <div className="grid gap-8 md:grid-cols-4 pb-8 border-b border-slate-200">
+    <footer id="privacy" className="border-t border-[#E2E9DF] bg-[#F4F1E8] py-12 px-6">
+      <div className="mx-auto max-w-[1100px]">
+        <div className="grid gap-8 md:grid-cols-3 pb-8 border-b border-[#E2E9DF]">
           {/* Brand Col */}
           <div className="md:col-span-2">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-slate-200 shadow-xs p-1 overflow-hidden">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-[#E2E9DF] shadow-xs p-1 overflow-hidden">
                 <img src="/logo.png" alt="AI Journal Logo" className="h-full w-full object-contain rounded-lg" />
               </div>
               <div>
-                <p className="text-sm font-bold tracking-tight text-slate-900">
+                <p className="text-sm font-bold tracking-tight text-[#26261F] font-serif">
                   AI JOURNAL
                 </p>
-                <p className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-semibold">
-                  Growth workspace
+                <p className="text-[9px] uppercase tracking-[0.18em] text-[#4B5D3C] font-extrabold">
+                  Growth Workspace
                 </p>
               </div>
             </div>
-            <p className="mt-3 text-xs text-slate-600 max-w-sm leading-relaxed">
-              An intelligent personal reflection and goal-tracking platform. Turns conversational text and voice reflections into structured momentum, actionable blockers, and weekly accountability coaching.
+            <p className="mt-3 text-xs text-slate-600 max-w-md leading-relaxed font-medium">
+              An intelligent personal reflection and goal-tracking platform. Turns conversational text and voice reflections into structured momentum, actionable blockers, and intelligent AI coaching.
             </p>
           </div>
 
           {/* Product Links */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">Product</h4>
-            <ul className="flex flex-col gap-2 text-xs text-slate-600">
-              <li><a href="#features" className="hover:text-indigo-600 transition">Voice Reflection</a></li>
-              <li><a href="#features" className="hover:text-indigo-600 transition">Gemini AI Structuring</a></li>
-              <li><a href="#features" className="hover:text-indigo-600 transition">Goal Progress Engine</a></li>
-              <li><a href="#features" className="hover:text-indigo-600 transition">Accountability Coach</a></li>
-            </ul>
-          </div>
-
-          {/* Quick Access Links */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">Account</h4>
-            <ul className="flex flex-col gap-2 text-slate-600">
-              <li><Link to="/login" className="hover:text-indigo-600 transition">Sign In to Workspace</Link></li>
-              <li><Link to="/register" className="hover:text-indigo-600 transition">Create Free Account</Link></li>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#26261F] mb-3">Product</h4>
+            <ul className="flex flex-col gap-2 text-xs text-slate-600 font-medium">
+              <li><a href="#features" className="hover:text-[#4B5D3C] transition">Voice Reflection</a></li>
+              <li><a href="#journey" className="hover:text-[#4B5D3C] transition">Gemini AI Structuring</a></li>
+              <li><a href="#features" className="hover:text-[#4B5D3C] transition">10-Class Mood Analyzer</a></li>
+              <li><a href="#features" className="hover:text-[#4B5D3C] transition">AI Coach</a></li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500 font-medium">
           <p>© {new Date().getFullYear()} AI Journal. All rights reserved.</p>
-          <p className="italic text-indigo-600 font-medium">Powered by Google Gemini & faster-whisper.</p>
+          <p className="italic text-[#4B5D3C] font-semibold">Powered by Google Gemini & faster-whisper.</p>
         </div>
       </div>
     </footer>

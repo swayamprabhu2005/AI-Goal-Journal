@@ -1,48 +1,24 @@
+"""
+app/core/config.py
+"""
+
 import os
-from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
 
-# Root directory of the project
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-ENV_FILE = ROOT_DIR / ".env"
+load_dotenv()
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=str(ENV_FILE) if ENV_FILE.exists() else None,
-        env_file_encoding="utf-8",
-        extra="ignore"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash-lite")
+
+EXTRACTION_TEMPERATURE = 0.0
+
+# How many times to retry with a repair prompt if Gemini's response
+# fails JSON parsing or schema validation.
+MAX_REPAIR_ATTEMPTS = 1
+
+if not GEMINI_API_KEY:
+    raise EnvironmentError(
+        "GEMINI_API_KEY is not set. Copy .env.example to .env and add your "
+        "key from Google AI Studio (https://aistudio.google.com/apikey)."
     )
-
-    # Gemini AI
-    GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
-
-    # Firebase
-    FIREBASE_PROJECT_ID: str = ""
-    VITE_FIREBASE_PROJECT_ID: str = ""
-
-    # Whisper
-    WHISPER_MODEL: str = "tiny"
-    WHISPER_DEVICE: str = "cpu"
-    WHISPER_COMPUTE_TYPE: str = "int8"
-
-    # Encryption (AES-256-GCM / Fernet)
-    ENCRYPTION_KEY: str = ""
-    ENCRYPTION_OLD_KEYS: str = ""  # Comma-separated list of previous keys for seamless rotation
-    JOURNAL_ENCRYPTION_KEY: str = ""
-
-    # API / Server
-    API_V1_PREFIX: str = "/api/v1"
-    PROJECT_NAME: str = "AI Goal Journal & Accountability Coach"
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
-
-    @property
-    def effective_firebase_project_id(self) -> str:
-        return self.FIREBASE_PROJECT_ID or self.VITE_FIREBASE_PROJECT_ID
-
-settings = Settings()

@@ -31,6 +31,9 @@ class GoalUpdate(BaseModel):
     target_date: Optional[str] = None
     progress_value: Optional[int] = Field(None, ge=0, le=100)
     latest_progress_note: Optional[str] = None
+    google_event_id: Optional[str] = None
+    google_event_link: Optional[str] = None
+    calendar_synced: Optional[bool] = None
 
 class GoalResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -46,6 +49,9 @@ class GoalResponse(BaseModel):
     progress_value: int = 0
     latest_progress_note: Optional[str] = None
     estimated_days_remaining: Optional[int] = None
+    google_event_id: Optional[str] = None
+    google_event_link: Optional[str] = None
+    calendar_synced: bool = False
     created_at: datetime
     updated_at: datetime
 

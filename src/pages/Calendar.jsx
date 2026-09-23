@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Plus, X, Target, CheckCircle2 } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { goalApi } from "../services/api";
 import GoalCalendar from "../components/GoalCalendar";
 import GoalCelebration from "../components/GoalCelebration";
 import { GoalLoadingState } from "../components/LoadingSkeleton";
+import GoogleCalendarBanner from "../components/GoogleCalendarBanner";
+import SyncGoogleCalendarModal from "../components/SyncGoogleCalendarModal";
 
 export default function CalendarPage() {
   const {
     goals,
     hasLoadedGoals,
+    initialLoading,
     addGoal,
     updateGoalInCache,
     recentlyCompletedGoal,
@@ -19,6 +22,18 @@ export default function CalendarPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
+  const [syncingGoal, setSyncingGoal] = useState(null);
+  const [toastMessage, setToastMessage] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("calendar_connected") === "success") {
+      setToastMessage("Google Calendar connected successfully! You can now sync your goals to your calendar.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      const timer = setTimeout(() => setToastMessage(""), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Form states
   const [title, setTitle] = useState("");
@@ -144,8 +159,8 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="app-page min-h-screen bg-slate-50">
-      <main className="mx-auto max-w-[1400px] px-6 py-8 md:px-10 lg:px-12 space-y-8 animate-fade-in pb-16">
+    <div className="app-page min-h-screen bg-[#EEF3EC]">
+      <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8 space-y-8 animate-fade-in pb-16">
       {/* CELEBRATION MODAL */}
       <GoalCelebration
         completedGoal={recentlyCompletedGoal}
@@ -156,11 +171,11 @@ export default function CalendarPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E2E9DF]/60 text-[#3A492E] shadow-sm">
               <CalendarIcon size={22} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-2xl font-bold text-[#26261F] tracking-tight">
                 Goal Calendar
               </h1>
               <p className="text-xs font-semibold text-slate-500">
@@ -175,19 +190,43 @@ export default function CalendarPage() {
             resetForm();
             setShowCreateModal(true);
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 hover:shadow transition"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#4B5D3C] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#3A492E] hover:shadow transition"
         >
           <Plus size={18} />
           Add Milestone Goal
         </button>
       </div>
 
+      {toastMessage && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 p-4 text-xs font-semibold text-emerald-800 dark:text-emerald-200 shadow-xs animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage("")}
+            className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 p-1"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* GOOGLE CALENDAR BANNER */}
+      <GoogleCalendarBanner />
+
       {/* MAIN CALENDAR COMPONENT */}
-      <GoalCalendar
-        goals={goals}
-        onQuickStatusChange={handleQuickStatusChange}
-        onOpenEdit={openEdit}
-      />
+      {initialLoading || !hasLoadedGoals ? (
+        <GoalLoadingState />
+      ) : (
+        <GoalCalendar
+          goals={goals}
+          onQuickStatusChange={handleQuickStatusChange}
+          onOpenEdit={openEdit}
+          onSyncGoal={(g) => setSyncingGoal(g)}
+        />
+      )}
 
       {/* CREATE / EDIT GOAL MODAL */}
       {showCreateModal && (
@@ -195,11 +234,11 @@ export default function CalendarPage() {
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E2E9DF]/60 text-[#3A492E]">
                   <Target size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-bold text-[#26261F]">
                     {editingGoal ? "Edit Milestone Goal" : "New Milestone Goal"}
                   </h3>
                   <p className="text-xs text-slate-500">
@@ -232,7 +271,7 @@ export default function CalendarPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Complete AWS Developer Certification"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-[#4B5D3C] focus:ring-2 focus:ring-[#4B5D3C]/20 outline-none"
                 />
               </div>
 
@@ -245,7 +284,7 @@ export default function CalendarPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Details, key outcomes, or success criteria..."
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-[#4B5D3C] focus:ring-2 focus:ring-[#4B5D3C]/20 outline-none resize-none"
                 />
               </div>
 
@@ -259,7 +298,7 @@ export default function CalendarPage() {
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     placeholder="e.g. Career, Learning"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-[#4B5D3C] focus:ring-2 focus:ring-[#4B5D3C]/20 outline-none"
                   />
                 </div>
 
@@ -276,7 +315,7 @@ export default function CalendarPage() {
                         setProgressValue(100);
                       }
                     }}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none bg-white"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-[#4B5D3C] focus:ring-2 focus:ring-[#4B5D3C]/20 outline-none bg-white"
                   >
                     <option value="Active">Active</option>
                     <option value="Stalled">Stalled</option>
@@ -294,7 +333,7 @@ export default function CalendarPage() {
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-[#4B5D3C] focus:ring-2 focus:ring-[#4B5D3C]/20 outline-none"
                   />
                 </div>
 
@@ -316,31 +355,67 @@ export default function CalendarPage() {
                       if (val === 100) setStatus("Completed");
                       else if (status === "Completed") setStatus("Active");
                     }}
-                    className="w-full accent-indigo-600 mt-2"
+                    className="w-full accent-[#4B5D3C] mt-2"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {saving ? "Saving..." : editingGoal ? "Update Goal" : "Create Goal"}
-                </button>
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                <div>
+                  {editingGoal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = editingGoal;
+                        setShowCreateModal(false);
+                        setSyncingGoal(target);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E9DF] bg-[#E2E9DF]/60 px-3 py-2 text-xs font-bold text-[#3A492E] hover:bg-[#E2E9DF] transition"
+                    >
+                      <CalendarIcon size={14} />
+                      <span>{editingGoal.calendar_synced ? "Calendar Synced ✓" : "Sync to Google Calendar"}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-xl bg-[#4B5D3C] px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#3A492E] transition disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {saving ? "Saving..." : editingGoal ? "Update Goal" : "Create Goal"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* SYNC GOOGLE CALENDAR MODAL */}
+      <SyncGoogleCalendarModal
+        goal={syncingGoal}
+        isOpen={Boolean(syncingGoal)}
+        onClose={() => setSyncingGoal(null)}
+        onSuccess={(res) => {
+          if (syncingGoal) {
+            updateGoalInCache({
+              ...syncingGoal,
+              calendar_synced: true,
+              google_event_id: res.google_event_id,
+              google_event_link: res.google_event_link,
+            });
+          }
+        }}
+      />
       </main>
     </div>
   );

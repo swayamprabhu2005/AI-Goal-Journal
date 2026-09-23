@@ -7,7 +7,7 @@ import { useData } from "../context/DataContext";
 
 export default function Profile() {
   const { user } = useAuth();
-  const { profile, hasLoadedProfile, fetchProfile, updateProfileInCache } = useData();
+  const { profile, hasLoadedProfile, fetchProfile, updateProfileInCache, goals = [], journals = [] } = useData();
 
   const [displayName, setDisplayName] = useState(profile?.display_name || user?.displayName || "");
   const [profession, setProfession] = useState(profile?.profession || "");
@@ -16,6 +16,15 @@ export default function Profile() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const loading = !hasLoadedProfile && !profile && !user;
+
+  // Live tracked metrics computed from goals & journals with profile.stats fallback
+  const totalJournalsCount = journals.length > 0 ? journals.length : (profile?.stats?.total_journals ?? 0);
+  const activeGoalsCount = goals.length > 0
+    ? goals.filter((g) => (g.status || "").toLowerCase() === "active").length
+    : (profile?.stats?.active_goals ?? 0);
+  const completedGoalsCount = goals.length > 0
+    ? goals.filter((g) => (g.status || "").toLowerCase() === "completed").length
+    : (profile?.stats?.completed_goals ?? 0);
 
   useEffect(() => {
     fetchProfile({ quiet: true });
@@ -50,45 +59,45 @@ export default function Profile() {
   }
 
   return (
-    <div className="app-page bg-slate-50 min-h-screen">
-      <main className="mx-auto max-w-[1000px] px-5 py-7 md:px-8 lg:px-10 animate-rise">
+    <div className="app-page bg-[#F4F1E8] min-h-screen">
+      <main className="mx-auto max-w-4xl px-5 py-6 md:px-8 animate-rise">
         {statusMessage && (
-          <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-600 font-semibold">
+          <div role="status" className="mb-5 rounded-xl border border-[#4B5D3C]/30 bg-[#E2E9DF] px-4 py-3 text-xs text-[#4B5D3C] font-semibold">
             ✓ {statusMessage}
           </div>
         )}
 
         {errorMessage && (
-          <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
+          <div role="alert" className="mb-5 rounded-xl border border-[#C1622C]/30 bg-[#FBEBE3] px-4 py-3 text-xs text-[#C1622C]">
             <strong>Notice: </strong> {errorMessage}
           </div>
         )}
 
         {loading ? (
-          <section className="panel px-6 py-20 text-center shadow-sm">
-            <p className="text-sm font-medium text-slate-500">Loading profile…</p>
+          <section className="panel px-6 py-16 text-center shadow-xs">
+            <p className="text-xs font-medium text-slate-500">Loading profile…</p>
           </section>
         ) : (
           <div className="flex flex-col gap-6">
             {/* Identity & Stats Header Card */}
-            <section className="panel p-6 shadow-sm">
+            <section className="panel p-6 shadow-xs bg-white border border-[#E2E9DF] rounded-2xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-2xl text-white shadow-sm">
-                    <User size={30} />
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#4B5D3C] text-xl text-white shadow-xs">
+                    <User size={26} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900">
+                    <h2 className="text-lg font-bold text-[#26261F]">
                       {profile?.display_name || displayName || user?.displayName || user?.email?.split("@")[0] || "Goal Journal User"}
                     </h2>
                     <p className="text-xs text-slate-500 font-semibold mt-0.5">
                       {profile?.profession || profession || "Productivity Enthusiast"}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-lg bg-slate-100 px-3 py-1 font-mono text-slate-700 border border-slate-200 text-[11px] font-medium">
+                      <span className="rounded-lg bg-[#F4F1E8] px-2.5 py-1 font-mono text-[#26261F] border border-[#E2E9DF] text-[11px] font-medium">
                         {profile?.email || user?.email}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-0.5 text-[10px] font-bold text-emerald-600 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#E2E9DF] px-2.5 py-0.5 text-[10px] font-bold text-[#4B5D3C] border border-[#4B5D3C]/20">
                         <ShieldCheck size={12} /> Firebase Verified
                       </span>
                     </div>
@@ -97,38 +106,38 @@ export default function Profile() {
               </div>
 
               {/* Quick Metrics Bar */}
-              <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-3 gap-3 text-center">
-                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                  <div className="text-2xl font-bold text-slate-900">{profile?.stats?.total_journals ?? 0}</div>
+              <div className="mt-5 pt-4 border-t border-[#E2E9DF] grid grid-cols-3 gap-3 text-center">
+                <div className="bg-[#F4F1E8]/70 p-3 rounded-xl border border-[#E2E9DF]">
+                  <div className="text-xl font-bold text-[#26261F]">{totalJournalsCount}</div>
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">Journals</div>
                 </div>
-                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                  <div className="text-2xl font-bold text-slate-900">{profile?.stats?.active_goals ?? 0}</div>
+                <div className="bg-[#F4F1E8]/70 p-3 rounded-xl border border-[#E2E9DF]">
+                  <div className="text-xl font-bold text-[#26261F]">{activeGoalsCount}</div>
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">Active Goals</div>
                 </div>
-                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                  <div className="text-2xl font-bold text-emerald-600">{profile?.stats?.completed_goals ?? 0}</div>
+                <div className="bg-[#F4F1E8]/70 p-3 rounded-xl border border-[#E2E9DF]">
+                  <div className="text-xl font-bold text-[#4B5D3C]">{completedGoalsCount}</div>
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">Completed</div>
                 </div>
               </div>
             </section>
 
             {/* Edit Profile Form */}
-            <section className="panel p-6 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900 mb-4 border-b border-slate-100 pb-3">
+            <section className="panel p-6 shadow-xs bg-white border border-[#E2E9DF] rounded-2xl">
+              <h2 className="text-sm font-bold text-[#26261F] mb-4 border-b border-[#E2E9DF] pb-3">
                 Account Details
               </h2>
 
               <form onSubmit={handleSave} className="flex flex-col gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                  <label className="text-xs font-semibold text-[#26261F] block mb-1.5">
                     Email Address (Authoritative)
                   </label>
                   <input
                     type="email"
                     value={profile?.email || user?.email || ""}
                     disabled
-                    className="input-field px-3.5 py-2.5 text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl cursor-not-allowed font-mono opacity-75"
+                    className="input-field px-3.5 py-2.5 text-xs text-slate-500 bg-[#F4F1E8]/80 border border-[#E2E9DF] rounded-xl cursor-not-allowed font-mono opacity-80"
                   />
                   <span className="text-[11px] text-slate-500 mt-1 block font-medium">
                     Identity is derived securely from Firebase Authentication.
@@ -151,8 +160,8 @@ export default function Profile() {
                   onChange={(e) => setProfession(e.target.value)}
                 />
 
-                <div className="flex justify-end pt-3 border-t border-slate-100">
-                  <button type="submit" disabled={saving} className="primary-button text-xs">
+                <div className="flex justify-end pt-3 border-t border-[#E2E9DF]">
+                  <button type="submit" disabled={saving} className="primary-button text-xs font-bold py-2 px-4">
                     {saving ? "Saving…" : "Save Profile Changes"}
                   </button>
                 </div>

@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { PencilLoader } from './LoadingSkeleton';
 
 /**
  * Guard for public-only auth pages (Login, Register).
@@ -10,10 +11,10 @@ export default function PublicRoute({ children }) {
 
   if (checkingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-soft-app">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-moss-200 border-t-moss-600" />
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-text">
+      <div className="flex min-h-screen items-center justify-center bg-[#E2E9DF] p-6 text-slate-900 font-sans">
+        <div className="flex flex-col items-center justify-center text-center">
+          <PencilLoader />
+          <p className="mt-2 text-sm font-semibold text-slate-700 tracking-wide animate-pulse">
             Verifying Session...
           </p>
         </div>

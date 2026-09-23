@@ -10,9 +10,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ai_goal_journal
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ai_goal_journal_pgdata:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  ai_goal_journal_pgdata:

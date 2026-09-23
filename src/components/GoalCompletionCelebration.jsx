@@ -31,24 +31,29 @@ function useConfetti(canvasRef) {
     };
     layout();
 
-    const count = window.innerWidth < 640 ? 90 : 160;
+    const count = window.innerWidth < 640 ? 180 : 380;
     const particles = [];
     for (let i = 0; i < count; i++) {
       const { w, h } = dims();
+      const isLeft = i % 2 === 0;
+      const originX = isLeft ? w * 0.15 : w * 0.85;
+      const angle = (isLeft ? -Math.PI / 3 : (-2 * Math.PI) / 3) + (Math.random() - 0.5) * 0.8;
+      const speed = Math.random() * 20 + 10;
+
       particles.push({
-        x: Math.random() * w,
-        y: Math.random() * h - h / 2,
-        size: Math.random() * 9 + 5,
+        x: originX,
+        y: h * 0.85,
+        size: Math.random() * 11 + 6,
         color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-        vx: (Math.random() - 0.5) * 1.2,
-        vy: Math.random() * 1.8 + 0.6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
         rot: Math.random() * Math.PI,
-        rotSpeed: (Math.random() - 0.5) * 0.35,
+        rotSpeed: (Math.random() - 0.5) * 0.4,
         shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
-        drift: (Math.random() - 0.5) * 0.3,
+        drift: (Math.random() - 0.5) * 0.4,
         life: 1,
         decay: Math.random() * 0.0015 + 0.0008,
-        grav: 0.06 + Math.random() * 0.04,
+        grav: 0.35 + Math.random() * 0.2,
       });
     }
 
@@ -172,7 +177,7 @@ function GoalCompletionModal({ goal, onClose }) {
             <h2 className="flex items-center justify-center gap-2 text-3xl font-bold text-slate-900">
               🎉 Goal Completed!
             </h2>
-            <p className="break-words rounded-lg bg-indigo-50 px-3 py-1.5 text-lg font-semibold text-indigo-700 border border-indigo-100">
+            <p className="break-words rounded-lg bg-[#E2E9DF]/60 px-3 py-1.5 text-lg font-semibold text-[#3A492E] border border-[#E2E9DF]">
               {title}
             </p>
           </div>

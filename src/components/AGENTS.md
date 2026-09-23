@@ -14,10 +14,13 @@ Provide reusable, accessible, unstyled-by-default or token-styled UI components 
 ## 2. Component Contracts
 
 - **`TrendChart.jsx`**:
-  - Reusable pure SVG vector trend chart for historical progress data.
-  - Accepts `history` array (with `progress_percentage`, `created_at`, `notes`, `change_from_previous`), `height`, `showDots`, and `lineColor`.
-  - Calculates responsive coordinate scaling (`viewBox="0 0 100 100"` with `preserveAspectRatio="none"`), smooth gradient area fills, and interactive data point inspection.
+  - Reusable pure SVG vector trend chart for historical progress data and multi-goal trajectories.
+  - Supports single-goal mode via `history` array or multi-goal mode via `multiSeries` array (each series containing `id`, `name`, `color`, and `points`).
+  - Supports distinct Calm Moss line colors, milestone start/current badges (`Start 0%`, `Current X%`), coordinate scaling (`viewBox="0 0 100 100"` with `preserveAspectRatio="none"`), smooth gradient area fills, and interactive data point inspection.
   - Renders graceful empty state when fewer than 2 progress checkpoints are recorded.
+- **`FormattedChatMessage.jsx`**:
+  - High-readability chat renderer for AI coaching responses.
+  - Formats markdown headers (`###`), bold keyphrases (`**`), bullet points, numbered action steps, and quote callouts into structured Calm Moss aesthetic cards.
 - **`VoiceRecorder.jsx`**:
   - Encapsulates `navigator.mediaDevices.getUserMedia` and `MediaRecorder`.
   - Must support lifecycle: `idle` $\rightarrow$ `recording` $\rightarrow$ `recorded` $\rightarrow$ `transcribing` $\rightarrow$ `editable_transcript`.
@@ -31,7 +34,8 @@ Provide reusable, accessible, unstyled-by-default or token-styled UI components 
 - **`Input.jsx`**:
   - Accessible form control with `<label>`, error messaging, and `aria-invalid` bindings.
 - **`Navbar.jsx` / `Sidebar.jsx` / `AppShell.jsx`**:
-  - Application layout frames providing consistent brand header and navigation links (`Dashboard`, `Journal`, `Goals`, `AI Coach`, `Profile`).
+  - Application layout frames providing consistent brand header and navigation links (`Dashboard`, `Journal`, `Goals`, `AI Coach`, `Insights`, `Habits`, `Progress`, `Calendar`, `Profile`).
+  - `AppShell.jsx` ensures automatic scroll-to-top on route changes.
 
 ---
 

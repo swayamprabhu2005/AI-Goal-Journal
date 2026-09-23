@@ -10,7 +10,35 @@ from app.models.domain import (
     WeeklySummary,
     Habit,
     HabitLog,
+    Roadmap,
 )
+
+class AbstractRoadmapRepository(ABC):
+
+    @abstractmethod
+    def save(
+        self,
+        roadmap: Roadmap
+    ) -> Roadmap:
+        pass
+
+    @abstractmethod
+    def get_by_goal(
+        self,
+        user_id: str,
+        goal_id: str
+    ) -> Optional[Roadmap]:
+        pass
+
+    @abstractmethod
+    def toggle_milestone(
+        self,
+        user_id: str,
+        goal_id: str,
+        step_number: int,
+        completed: Optional[bool] = None
+    ) -> Optional[Roadmap]:
+        pass
 
 
 class AbstractUserRepository(ABC):

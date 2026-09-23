@@ -8,15 +8,17 @@
 ## 1. Responsibilities
 
 Provide the core user journeys and orchestrate data fetching, UI state, user input forms, and error handling:
-- `Dashboard.jsx`: Executive overview, metrics, active goals with priority badges, real-time Progress Trend chart (`TrendChart.jsx`), summary analytics cards, and Productivity Score modal.
+- `Landing.jsx`: Public showcase featuring hero, interactive preview, feature pillars, and call-to-actions.
+- `Dashboard.jsx`: Executive overview, portfolio metrics, active goals with priority badges, multi-goal real-time Progress Trajectory chart (`TrendChart.jsx` defaulting to all goals with distinct Calm Moss colors), summary analytics cards, and Productivity Score modal.
 - `Journal.jsx`: AI Journal dual text and voice reflection recording with local Whisper STT, Gemini semantic analysis, in-place result transition, and auto-scroll.
-- `Goals.jsx`: Goal tracker with status filters (Active, Completed, Stalled), Smart Priority badges, completion celebration, and create/edit modal.
-- `progress.jsx`: Dedicated historical progress analytics, pure-SVG trend chart, goal selector, delta metrics (`change_from_previous`), completed milestone banner, and chronological history timeline.
-- `Habits.jsx`: Monday–Sunday habit tracker with ordinal dates, week navigation, streaks, and optimistic check-offs.
+- `Goals.jsx`: Goal management with status filters (Active, Completed, Stalled), priority tags (`High`, `Medium`, `Low`), completion celebration, and AI learning roadmap generator.
+- `progress.jsx`: Dedicated historical progress analytics, pure-SVG trend chart, goal selector, delta metrics (`change_from_previous`), completed milestone banner, chronological history timeline, and 0 ms navigation via `progressTrendCache`.
+- `Habits.jsx`: Monday–Sunday habit tracker with ordinal dates, week navigation, streaks, optimistic check-offs, and one-way daily completion lock.
 - `Calendar.jsx`: Interactive monthly calendar matrix, date inspector, and deadline timeline.
-- `AiCoach.jsx`: Dedicated on-demand weekly accountability summary view.
+- `AiCoach.jsx`: Dedicated two-way conversational AI coaching chat powered by Groq Cloud API, formatted markdown messages (`FormattedChatMessage.jsx`), context grounding, and prompt pills.
+- `Insights.jsx`: Dedicated weekly AI summaries, habit consistency insights, and blocker analysis.
 - `Profile.jsx`: View and edit user profile (Display Name, Profession, authoritative Email).
-- `Login.jsx` & `Register.jsx`: Public authentication views.
+- `Auth.jsx`: Unified public authentication view supporting Email/Password, Google OAuth 2.0, and Microsoft OAuth 2.0.
 
 ---
 

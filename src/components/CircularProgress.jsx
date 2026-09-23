@@ -8,7 +8,7 @@ export default function CircularProgress({
   value,
   className = "w-24 h-24",
   trackClass = "stroke-slate-200",
-  fillClass = "stroke-indigo-600",
+  fillClass = "stroke-[#4B5D3C]",
   center,
 }) {
   const safeValue = (() => {

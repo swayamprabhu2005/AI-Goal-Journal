@@ -7,6 +7,15 @@
 
 ## 1. Responsibilities
 
+- **`mood_service.py`**:
+  - Custom PyTorch 10-Class Attention BiLSTM neural network (`models/mood_analyzer/weights/emotion_model.pth`).
+  - Ultra-fast CPU inference (~3–5 ms latency, ~30 MB RAM) extracting primary emotional state, confidence score, and trigger keywords.
+- **`groq_service.py`**:
+  - High-speed conversational AI coach powered by Groq Cloud API (`openai/gpt-oss-120b`, fallback `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`).
+  - Context grounding injecting user's active goals, habit streaks, recent journals, and detected emotional pulse.
+- **`roadmap_service.py`**:
+  - AI learning roadmap generator utilizing Gemini Flash-Lite to produce 4–8 sequential milestones with realistic durations.
+  - Bidirectional progress synchronization (checking off roadmap milestones updates goal progress up to 100%) and offline curriculum fallbacks.
 - **`whisper_service.py`**:
   - Encapsulates `faster_whisper.WhisperModel` initialized strictly with `model_size_or_path="tiny"`, `device="cpu"`, `compute_type="int8"`.
   - Lazy-loaded singleton; manages temporary file creation and immediate deletion in `finally` blocks.
