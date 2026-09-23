@@ -64,12 +64,13 @@ function StatCard({ icon: Icon, iconClass, value, label }) {
 
 export default function Habits() {
   const { habits: contextHabits, hasLoadedHabits, setHabitsInCache } = useData();
-  const [habits, setHabits] = useState(contextHabits || []);
+  const safeContextHabits = Array.isArray(contextHabits) ? contextHabits : [];
+  const [habits, setHabits] = useState(safeContextHabits);
   const [completions, setCompletions] = useState({});
   const [statusMap, setStatusMap] = useState({});
 
   // Page async state
-  const [loading, setLoading] = useState(!hasLoadedHabits && (!contextHabits || contextHabits.length === 0));
+  const [loading, setLoading] = useState(!hasLoadedHabits && safeContextHabits.length === 0);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 

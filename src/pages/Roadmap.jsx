@@ -69,7 +69,8 @@ export default function RoadmapPage({
   const [fetchNonce, setFetchNonce] = useState(0); // bumped to retry a failed load
   const [activeCelebration, setActiveCelebration] = useState(null);
 
-  const goal = goals.find((g) => g.id === goalId) || null;
+  const safeGoals = Array.isArray(goals) ? goals : [];
+  const goal = safeGoals.find((g) => g.id === goalId) || null;
   const simulate = searchParams.get('simulate') || undefined;
 
   // Track previously-completed milestones / roadmap so completion events fire

@@ -30,11 +30,16 @@ function resolveApiBase() {
 
   if (typeof window !== 'undefined' && window.location && window.location.hostname) {
     const { protocol, hostname, port } = window.location;
-    const portSuffix = port === String(DEFAULT_BACKEND_PORT) ? '' : `:${DEFAULT_BACKEND_PORT}`;
-    return `${protocol}//${hostname}${portSuffix}/api/v1`;
+    // When running locally on developer machines
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      const portSuffix = port === String(DEFAULT_BACKEND_PORT) ? '' : `:${DEFAULT_BACKEND_PORT}`;
+      return `${protocol}//${hostname}${portSuffix}/api/v1`;
+    }
+    // Production deployed URL fallback (e.g. Vercel deployment)
+    return 'https://ai-goal-journal-backend.onrender.com/api/v1';
   }
 
-  return '/api/v1';
+  return 'https://ai-goal-journal-backend.onrender.com/api/v1';
 }
 
 const API_BASE = resolveApiBase();

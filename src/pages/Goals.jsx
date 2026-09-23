@@ -56,14 +56,15 @@ export default function Goals() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
+  const safeGoals = Array.isArray(goals) ? goals : [];
   const filteredGoals = statusFilter
-    ? goals.filter((g) => {
+    ? safeGoals.filter((g) => {
         if (statusFilter === "High Priority") {
           return (g.priority || "").toLowerCase().includes("high");
         }
         return g.status?.toLowerCase() === statusFilter.toLowerCase();
       })
-    : goals;
+    : safeGoals;
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedGoals = filteredGoals.slice(startIndex, startIndex + itemsPerPage);

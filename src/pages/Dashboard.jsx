@@ -48,20 +48,23 @@ export default function Dashboard() {
   const [isTrendLoading, setIsTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState(null);
 
+  const safeGoals = Array.isArray(goals) ? goals : [];
+  const safeJournals = Array.isArray(journals) ? journals : [];
+
   const activeGoals = useMemo(
-    () => goals.filter((g) => g.status?.toLowerCase() === "active"),
-    [goals]
+    () => safeGoals.filter((g) => g.status?.toLowerCase() === "active"),
+    [safeGoals]
   );
 
   const displayGoals = useMemo(
-    () => goals.filter((g) => g.status?.toLowerCase() !== "archived"),
-    [goals]
+    () => safeGoals.filter((g) => g.status?.toLowerCase() !== "archived"),
+    [safeGoals]
   );
 
   // Default to "all" so all goals are rendered on the trajectory by default
   const primaryGoalId = !selectedGoalId || selectedGoalId === "all"
     ? "all"
-    : goals.some((g) => g.id === selectedGoalId)
+    : safeGoals.some((g) => g.id === selectedGoalId)
     ? selectedGoalId
     : "all";
 

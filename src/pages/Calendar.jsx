@@ -217,11 +217,11 @@ export default function CalendarPage() {
       <GoogleCalendarBanner />
 
       {/* MAIN CALENDAR COMPONENT */}
-      {initialLoading || !hasLoadedGoals ? (
+      {(initialLoading && (!goals || goals.length === 0)) || (!hasLoadedGoals && (!goals || goals.length === 0)) ? (
         <GoalLoadingState />
       ) : (
         <GoalCalendar
-          goals={goals}
+          goals={Array.isArray(goals) ? goals : []}
           onQuickStatusChange={handleQuickStatusChange}
           onOpenEdit={openEdit}
           onSyncGoal={(g) => setSyncingGoal(g)}

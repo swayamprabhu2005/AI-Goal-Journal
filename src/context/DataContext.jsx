@@ -7,7 +7,12 @@ import { notifyGoalCompleted } from '../components/GoalCelebration';
 function readLocal(key, fallback) {
   try {
     const raw = localStorage.getItem(`ai_journal_cache_${key}`);
-    return raw ? JSON.parse(raw) : fallback;
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(fallback)) {
+      return Array.isArray(parsed) ? parsed : fallback;
+    }
+    return parsed ?? fallback;
   } catch {
     return fallback;
   }
@@ -27,14 +32,23 @@ export function DataProvider({ children }) {
   const { user } = useAuth();
 
   const [profile, setProfile] = useState(() => readLocal('profile', null));
-  const [goals, setGoals] = useState(() => readLocal('goals', []));
-  const [journals, setJournals] = useState(() => readLocal('journals', []));
-  const [habits, setHabits] = useState(() => readLocal('habits', []));
+  const [goals, setGoals] = useState(() => {
+    const cached = readLocal('goals', []);
+    return Array.isArray(cached) ? cached : [];
+  });
+  const [journals, setJournals] = useState(() => {
+    const cached = readLocal('journals', []);
+    return Array.isArray(cached) ? cached : [];
+  });
+  const [habits, setHabits] = useState(() => {
+    const cached = readLocal('habits', []);
+    return Array.isArray(cached) ? cached : [];
+  });
   const [summary, setSummary] = useState(() => readLocal('summary', null));
   const [recentlyCompletedGoal, setRecentlyCompletedGoal] = useState(null);
 
-  const initialGoals = readLocal('goals', []);
-  const initialHabits = readLocal('habits', []);
+  const initialGoals = Array.isArray(readLocal('goals', [])) ? readLocal('goals', []) : [];
+  const initialHabits = Array.isArray(readLocal('habits', [])) ? readLocal('habits', []) : [];
   const hasCachedData = initialGoals.length > 0 || initialHabits.length > 0;
 
   const [hasLoadedProfile, setHasLoadedProfile] = useState(() => !!readLocal('profile', null));
@@ -108,9 +122,11 @@ export function DataProvider({ children }) {
   const fetchGoals = useCallback(async (statusFilter = '', options = { quiet: false }) => {
     try {
       const data = await goalApi.listGoals(statusFilter);
-      setGoals(data || []);
+      const safeData = Array.isArray(data) ? data : [];
+      setGoals(safeData);
+      writeLocal('goals', safeData);
       setHasLoadedGoals(true);
-      return data;
+      return safeData;
     } catch (err) {
       console.error('DataContext fetchGoals error:', err);
       if (!options.quiet) throw err;
@@ -121,9 +137,11 @@ export function DataProvider({ children }) {
   const fetchJournals = useCallback(async (options = { quiet: false }) => {
     try {
       const data = await journalApi.listJournals();
-      setJournals(data || []);
+      const safeData = Array.isArray(data) ? data : [];
+      setJournals(safeData);
+      writeLocal('journals', safeData);
       setHasLoadedJournals(true);
-      return data;
+      return safeData;
     } catch (err) {
       console.error('DataContext fetchJournals error:', err);
       if (!options.quiet) throw err;
@@ -134,9 +152,11 @@ export function DataProvider({ children }) {
   const fetchHabits = useCallback(async (options = { quiet: false }) => {
     try {
       const data = await habitApi.listHabits();
-      setHabits(data || []);
+      const safeData = Array.isArray(data) ? data : [];
+      setHabits(safeData);
+      writeLocal('habits', safeData);
       setHasLoadedHabits(true);
-      return data;
+      return safeData;
     } catch (err) {
       console.error('DataContext fetchHabits error:', err);
       if (!options.quiet) throw err;
@@ -148,6 +168,7 @@ export function DataProvider({ children }) {
     try {
       const data = await summaryApi.getWeeklySummary();
       setSummary(data);
+      if (data) writeLocal('summary', data);
       setHasLoadedSummary(true);
       return data;
     } catch (err) {
@@ -174,20 +195,23 @@ export function DataProvider({ children }) {
       setHasLoadedProfile(true);
 
       if (goalsRes.status === 'fulfilled' && goalsRes.value) {
-        setGoals(goalsRes.value || []);
-        writeLocal('goals', goalsRes.value || []);
+        const safeGoals = Array.isArray(goalsRes.value) ? goalsRes.value : [];
+        setGoals(safeGoals);
+        writeLocal('goals', safeGoals);
       }
       setHasLoadedGoals(true);
 
       if (journalsRes.status === 'fulfilled' && journalsRes.value) {
-        setJournals(journalsRes.value || []);
-        writeLocal('journals', journalsRes.value || []);
+        const safeJournals = Array.isArray(journalsRes.value) ? journalsRes.value : [];
+        setJournals(safeJournals);
+        writeLocal('journals', safeJournals);
       }
       setHasLoadedJournals(true);
 
       if (habitsRes.status === 'fulfilled' && habitsRes.value) {
-        setHabits(habitsRes.value || []);
-        writeLocal('habits', habitsRes.value || []);
+        const safeHabits = Array.isArray(habitsRes.value) ? habitsRes.value : [];
+        setHabits(safeHabits);
+        writeLocal('habits', safeHabits);
       }
       setHasLoadedHabits(true);
 
